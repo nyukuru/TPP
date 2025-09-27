@@ -1,5 +1,9 @@
+result
+build/
 .cache/
+
 .pre-commit-config.yaml
+compile_commands.json
 
 # Prerequisites
 *.d

@@ -48,7 +48,6 @@ if enable_docs
 endif
 
 if enable_tests
-  subdir('tests/unit')
-  subdir('tests/functional')
+  subdir('tests')
 endif
 

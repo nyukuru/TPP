@@ -1,14 +1,35 @@
 {
   stdenv,
-  cmake,
+  meson,
+  ninja,
+  pkg-config,
+  gtest,
+  lib,
   openssl,
 }:
-stdenv.mkDerivation {
+stdenv.mkDerivation (finalAttrs: {
   pname = "tpp";
-  version = "0.0.1b";
+  version = "0.1.0";
 
   src = ../.;
 
-  buildInputs = [openssl];
-  nativeBuildInputs = [cmake];
-}
+  doCheck = true;
+
+  mesonFlags = [
+    (lib.mesonBool "enable-tests" finalAttrs.finalPackage.doCheck)
+  ];
+
+  nativeBuildInputs = [
+    meson
+    ninja
+    pkg-config
+  ];
+
+  buildInputs = [
+    openssl
+  ];
+
+  checkInputs = [
+    gtest
+  ];
+})
