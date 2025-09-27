@@ -1,3 +1,6 @@
+.cache/
+.pre-commit-config.yaml
+
 # Prerequisites
 *.d
 
