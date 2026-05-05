@@ -1,5 +1,6 @@
 libtpp_sources = files(
-  'main.cpp'
+  'main.cpp',
+  'cluster.cpp'
 )
 
 cpp_args = [ '-DTPP_BUILD' ]
@@ -11,7 +12,7 @@ endif
 libtpp = library(
   'tpp',
   libtpp_sources,
-  include_directories : [public_headers, privat_headers],
+  include_directories : private_headers + public_headers,
   dependencies : deps,
   install : true,
   version : meson.project_version(),

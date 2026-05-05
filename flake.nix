@@ -19,9 +19,17 @@
     ];
 
     forAllSystems = func:
-      nixpkgs.lib.genAttrs
-      supportedSystems
-      (system: func system nixpkgs.legacyPackages.${system});
+      nixpkgs.lib.genAttrs supportedSystems
+      (
+        system: (
+          func
+          system
+          (import nixpkgs {
+            inherit system;
+            config.allowUnfree = true;
+          })
+        )
+      );
   in {
     overlays.default = final: prev: self.packages.${final.system};
 

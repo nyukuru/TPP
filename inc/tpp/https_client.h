@@ -22,21 +22,18 @@
 #pragma once
 #include <tpp/config.h>
 #include <tpp/export.h>
-#include <tpp/sslconnection.h>
+#include <tpp/ssl_connection.h>
 
 #include <cstdint>
 #include <list>
 #include <map>
 #include <string>
-#include <variant>
 #include <vector>
 
 namespace tpp {
 
-static inline const std::string http_version =
-    "TwitchBot (https://github.com/nyukuru/TPP, " + PACKAGE_VERSION + ")";
-
-static inline constexpr const char *TWITCH_HOST = "https://twitch.tv";
+static inline constexpr const char *HTTP_VERSION = PACKAGE_HTTP_VERSION;
+static inline constexpr const char *TWITCH_HOST  = "https://twitch.tv";
 
 /**
  * @brief HTTP connection status
@@ -136,7 +133,7 @@ using https_client_completion_event = std::function<void(class https_client *)>;
  * @brief Implements a HTTPS socket client based on the SSL client.
  * @note plaintext HTTP without SSL is also supported via a "downgrade" setting
  */
-class DPP_EXPORT https_client : public ssl_connection {
+class TPP_EXPORT https_client : public ssl_connection {
   /**
    * @brief The type of the request, e.g. GET, POST
    */

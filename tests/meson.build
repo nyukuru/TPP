@@ -1,5 +1,5 @@
 libtpp_unit_sources = files(
-
+  'unit/test_cluster.cpp'
 )
 
 libtpp_unit_tester = executable(
