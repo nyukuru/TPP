@@ -36,8 +36,7 @@ namespace tpp {
 
 /**
  * @brief Represents a timer handle.
- * Returned from cluster::start_timer and used by cluster::stop_timer.
- * This is obtained from a simple incrementing value, internally.
+ * Returned from application::start_timer and used by application::stop_timer.
  */
 typedef size_t timer;
 
@@ -110,9 +109,9 @@ typedef std::set<timer> timers_deleted_t;
 class TPP_EXPORT oneshot_timer {
  private:
   /**
-   * @brief Owning cluster.
+   * @brief Owning application.
    */
-  class cluster *owner;
+  class application *owner;
 
   /**
    * @brief Timer handle.
@@ -123,11 +122,11 @@ class TPP_EXPORT oneshot_timer {
   /**
    * @brief Construct a new oneshot timer object
    *
-   * @param cl cluster owner
+   * @param cl application owner
    * @param duration duration before firing
    * @param callback callback to call on firing
    */
-  oneshot_timer(class cluster *cl, uint64_t duration,
+  oneshot_timer(class application *cl, uint64_t duration,
                 timer_callback_t callback);
 
   /**
@@ -143,9 +142,6 @@ class TPP_EXPORT oneshot_timer {
    */
   void cancel();
 
-  /**
-   * @brief Destroy the oneshot timer object
-   */
   ~oneshot_timer();
 };
 

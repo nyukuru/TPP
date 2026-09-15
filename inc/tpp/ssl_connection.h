@@ -32,12 +32,12 @@
 
 namespace tpp {
 
+class application;
+
 /**
- * @brief This is an opaque class containing openssl library specific
- * structures. We define it this way so that the public facing T++ library
- * doesn't require the openssl headers be available to build against it.
+ * @brief Opaque type holding OpenSSL library specific structures.
  */
-class ssl_connection;
+class openssl_connection;
 
 /**
  * @brief Close a socket
@@ -58,10 +58,6 @@ TPP_EXPORT bool set_nonblocking(tpp::socket sockfd, bool non_blocking);
 
 /**
  * @brief SSL_read buffer size
- *
- * You'd think that we would get better performance with a bigger buffer, but
- * SSL frames are 16k each. SSL_read in non-blocking mode will only read 16k at
- * a time. There's no point in a bigger buffer as it'd go unused.
  */
 constexpr uint16_t DPP_BUFSIZE {16 * 1024};
 
@@ -139,7 +135,13 @@ class TPP_EXPORT ssl_connection {
   /**
    * @brief Openssl opaque contexts
    */
-  ssl_connection *ssl;
+  openssl_connection *ssl;
+
+  /**
+   * @brief Owning application. Used to reach the socket engine and timer
+   * subsystem shared by every connection.
+   */
+  application *owner;
 
   /**
    * @brief SSL cipher in use
@@ -202,11 +204,8 @@ class TPP_EXPORT ssl_connection {
   timer timer_handle;
 
   /**
-   * @brief Unique ID of socket used as a nonce
-   * You can use this to identify requests vs reply
-   * if you want. D++ itself only sets this, and does
-   * not use it in any logic. It starts at 1 and increments
-   * for each request made.
+   * @brief Unique ID of socket used as a nonce. Starts at 1 and
+   * increments for each request made.
    */
   uint64_t unique_id;
 
@@ -238,13 +237,9 @@ class TPP_EXPORT ssl_connection {
 
   /**
    * @brief Start connecting to a TCP socket.
-   * This simply calls connect() and checks for error return, as the timeout is
-   * now handled in the main IO events for the ssl_connection class.
-   *
    * @param sockfd socket descriptor
    * @param addr address to connect to
    * @param addrlen address length
-   * @param timeout_ms timeout in milliseconds
    * @return int -1 on error, 0 on success just like POSIX connect()
    * @throw tpp::connection_exception on failure
    */
@@ -253,17 +248,12 @@ class TPP_EXPORT ssl_connection {
 
  public:
   /**
-   * @brief For low-level debugging, calling this function will
-   * enable low level I/O logging for this connection to the logger.
-   * This can be very loud, and output a lot of data, so only enable it
-   * selectively where you need it.
-   *
-   * Generally, you won't need this, it is a library development utility.
+   * @brief Enables low level I/O logging for this connection.
    */
   void enable_raw_tracing();
 
   /**
-   * @brief Get the bytes out objectGet total bytes sent
+   * @brief Get total bytes sent
    * @return uint64_t bytes sent
    */
   uint64_t get_bytes_out();
@@ -275,9 +265,7 @@ class TPP_EXPORT ssl_connection {
   uint64_t get_bytes_in();
 
   /**
-   * @brief Every request made has a unique ID. This increments
-   * for every request, starting at 1. You can use this for statistics,
-   * or to associate requests and replies in external event loops.
+   * @brief Get this connection's unique ID.
    * @return Unique ID
    */
   uint64_t get_unique_id() const;
@@ -306,6 +294,7 @@ class TPP_EXPORT ssl_connection {
   /**
    * @brief Connect to a specified host and port. Throws std::runtime_error on
    * fatal error.
+   * @param creator Owning application
    * @param _hostname The hostname to connect to
    * @param _port the Port number to connect to
    * @param plaintext_downgrade Set to true to connect using plaintext only,
@@ -314,11 +303,13 @@ class TPP_EXPORT ssl_connection {
    * port, if available
    * @throw tpp::exception Failed to initialise connection
    */
-  ssl_connection(const std::string &_hostname, const std::string &_port,
-                 bool plaintext_downgrade = false, bool reuse = false);
+  ssl_connection(application *creator, const std::string &_hostname,
+                 const std::string &_port, bool plaintext_downgrade = false,
+                 bool reuse = false);
 
   /**
    * @brief Accept a new connection from listen()/accept() socket
+   * @param creator Owning application
    * @param fd Socket file descriptor assigned by accept()
    * @param port Port the new fd came from
    * @param plaintext_downgrade Set to true to connect using plaintext only,
@@ -328,9 +319,9 @@ class TPP_EXPORT ssl_connection {
    * @param public_key if plaintext_downgrade is set to false, a public key PEM
    * file for SSL connections
    */
-  ssl_connection(socket fd, uint16_t port, const std::string &private_key,
-                 const std::string &public_key,
-                 bool               plaintext_downgrade = false);
+  ssl_connection(application *creator, socket fd, uint16_t port,
+                 bool plaintext_downgrade, const std::string &private_key,
+                 const std::string &public_key);
 
   /**
    * @brief Set up non blocking I/O and configure on_read, on_write and
@@ -340,9 +331,6 @@ class TPP_EXPORT ssl_connection {
    */
   void read_loop();
 
-  /**
-   * @brief Destroy the ssl_connection object
-   */
   virtual ~ssl_connection();
 
   /**

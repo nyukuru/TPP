@@ -30,14 +30,9 @@ namespace tpp::detail {
 struct wrapped_ssl_ctx;
 
 /**
- * @brief Generate a new wrapped SSL context.
- * If an SSL context already exists for the given port number, it will be
- * returned, else a new one will be generated and cached. Contexts with port = 0
- * will be considered client contexts. There can only be one client context at a
- * time and it covers all SSL client connections. There can be many SSL server
- * contexts, individual ones can be cached per-port, each with their own loaded
- * SSL private and public key PEM certificate.
- *
+ * @brief Gets or creates a wrapped SSL context. Port 0 is the single
+ * client context shared by all SSL client connections; other ports each
+ * get their own server context with its own loaded certificate.
  * @param port Port number. Pass zero to create or get the client context.
  * @param private_key Private key PEM pathname for server contexts
  * @param public_key Public key PEM pathname for server contexts
@@ -48,10 +43,8 @@ TPP_EXPORT wrapped_ssl_ctx *generate_ssl_context(
     const std::string &public_key = "");
 
 /**
- * @brief Release an SSL context
- * @warning Only do this if you are certain no SSL connections remain that use
- * this context. As OpenSSL is a C library it is impossible for us to track this
- * on its behalf. Be careful!
+ * @brief Releases an SSL context.
+ * @warning Only call this once no SSL connections using it remain.
  * @param port port number to release
  */
 TPP_EXPORT void release_ssl_context(uint16_t port = 0);

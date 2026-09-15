@@ -31,19 +31,9 @@
 
 namespace tpp::detail {
 
-/**
- * @brief The vector of pairs of wrapped contexts is efficient for small numbers
- * of contexts. In a real world production application we expect to have 2 to 5
- * at most contexts, and for most bots that do not use server ports, there will
- * be only one context on port 0. This is O(n), but in the most common situation
- * of having one entry, it is O(1).
- */
 static std::vector<std::pair<uint16_t, std::unique_ptr<wrapped_ssl_ctx>>>
     contexts;
 
-/**
- * @brief Managing SSL contexts is thread-safe.
- */
 static std::shared_mutex context_mutex;
 
 void release_ssl_context(uint16_t port) {
@@ -82,10 +72,6 @@ wrapped_ssl_ctx *generate_ssl_context(uint16_t           port,
     }
   }
 
-  /* This sets the allowed SSL/TLS versions for the connection.
-   * Do not allow SSL 3.0, TLS < 1.3
-   * https://www.packetlabs.net/posts/tls-1-1-no-longer-secure/
-   */
   if (!SSL_CTX_set_min_proto_version(context->context, TLS1_3_VERSION)) {
     throw "Failed to set minimum SSL version!";
   }

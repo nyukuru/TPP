@@ -27,14 +27,10 @@
 #include <shared_mutex>
 
 namespace tpp {
-/* One hour in seconds */
 constexpr time_t one_hour = 60 * 60;
 
-/* Thread safety mutex for dns cache */
 std::shared_mutex dns_cache_mutex;
-
-/* Cache container */
-dns_cache_t dns_cache;
+dns_cache_t       dns_cache;
 
 /**
  * @brief Get address length
@@ -60,24 +56,17 @@ const dns_cache_entry *resolve_hostname(const std::string &hostname,
   int                         error;
   bool                        exists = false;
 
-  /* Thread safety scope */
   {
-    /* Check cache for existing DNS record. This can use a shared lock. */
     std::shared_lock dns_cache_lock(dns_cache_mutex);
     iter = dns_cache.find(hostname);
     if (iter != dns_cache.end()) {
       exists = true;
       if (now < iter->second->expire_timestamp) {
-        /* there is a cached entry that is still valid, return it */
         return iter->second.get();
       }
     }
   }
   if (exists) {
-    /* there is a cached entry, but it has expired,
-     * delete and free it, and fall through to a new lookup.
-     * We must use a unique lock here as we modify the cache.
-     */
     std::unique_lock dns_cache_lock(dns_cache_mutex);
     iter = dns_cache.find(hostname);
     if (iter != dns_cache.end()) { /* re-validate iter */
@@ -85,36 +74,23 @@ const dns_cache_entry *resolve_hostname(const std::string &hostname,
     }
   }
 
-  /* The hints indicate what sort of DNS results we are interested in.
-   * To change this to support IPv6, one change we need to make here is
-   * to change AF_INET to AF_UNSPEC. Everything else should just work fine.
-   */
   memset(&hints, 0, sizeof(addrinfo));
-  hints.ai_family   = AF_INET;// IPv6 explicitly unsupported by Discord
+  hints.ai_family   = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
 
   if ((error = getaddrinfo(hostname.c_str(), port.c_str(), &hints, &addrs))) {
-    /**
-     * The -20 makes sure the error codes dont conflict with codes given in the
-     * rest of the list Because C libraries love to use -1 and below directly as
-     * conflicting error codes.
-     */
     throw std::string("getaddrinfo error: ") + gai_strerror(error);
   }
 
-  /* Thread safety scope */
   {
-    /* Update cache, requires unique lock */
     std::unique_lock dns_cache_lock(dns_cache_mutex);
     auto             cache_entry = std::make_unique<dns_cache_entry>();
 
     for (struct addrinfo *rp = addrs; rp != nullptr; rp = rp->ai_next) {
-      /* Discord only support ipv4, so iterate over any ipv6 results */
       if (rp->ai_family != AF_INET) {
         continue;
       }
-      /* Save address family and other metadata for later */
       memcpy(&cache_entry->addr, rp, sizeof(addrinfo));
       char        buffer[128];
       sockaddr_in in {};
@@ -128,10 +104,7 @@ const dns_cache_entry *resolve_hostname(const std::string &hostname,
     cache_entry->expire_timestamp = now + one_hour;
     auto r = dns_cache.emplace(hostname, std::move(cache_entry));
 
-    /* Now we're done with this horrible struct, free it and return */
     freeaddrinfo(addrs);
-
-    /* Return either the existing entry, or the newly inserted entry */
     return r.first->second.get();
   }
 }

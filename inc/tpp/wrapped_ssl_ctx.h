@@ -33,7 +33,7 @@ namespace tpp::detail {
  */
 struct wrapped_ssl_ctx {
   /**
-   * @brief SSL_CTX pointer, raw C pointer nastiness
+   * @brief Underlying SSL_CTX pointer.
    */
   SSL_CTX *context {nullptr};
 
@@ -92,7 +92,6 @@ struct wrapped_ssl_ctx {
    */
   wrapped_ssl_ctx &operator=(wrapped_ssl_ctx &&other) noexcept {
     if (this != &other) {
-      /* Free current context if any and transfer ownership */
       SSL_CTX_free(context);
       context       = other.context;
       other.context = nullptr;

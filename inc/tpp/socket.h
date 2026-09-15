@@ -30,7 +30,6 @@
 namespace tpp {
 /**
  * @brief Represents a socket file descriptor.
- * This is used to ensure parity between windows and unix-like systems.
  */
 #ifndef _WIN32
 // clang-format off
@@ -57,8 +56,6 @@ namespace tpp {
 /**
  * @brief Represents an IPv4 address for use with socket functions such as
  * bind().
- *
- * Avoids type punning with C style casts from sockaddr_in to sockaddr pointers.
  */
 class TPP_EXPORT address_t {
   /**
@@ -82,10 +79,7 @@ class TPP_EXPORT address_t {
   [[nodiscard]] sockaddr *get_socket_address();
 
   /**
-   * @brief Returns size of sockaddr_in
-   * @return sockaddr_in size
-   * @note It is important the size this returns is sizeof(sockaddr_in) not
-   * sizeof(sockaddr), this is NOT a bug but requirement of C socket functions.
+   * @brief Returns sizeof(sockaddr_in).
    */
   [[nodiscard]] size_t size();
 
@@ -174,10 +168,6 @@ struct TPP_EXPORT raii_socket {
    */
   raii_socket operator=(raii_socket &&) = delete;
 
-  /**
-   * @brief Destructor
-   * Frees the socket by closing it
-   */
   ~raii_socket();
 };
 

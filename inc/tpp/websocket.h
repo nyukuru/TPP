@@ -166,23 +166,17 @@ class TPP_EXPORT websocket_client : public ssl_connection {
  public:
   /**
    * @brief Connect to a specific websocket server.
-   * @param creator Creating cluster
+   * @param creator Creating application
    * @param hostname Hostname to connect to
    * @param port Port to connect to
    * @param urlpath The URL path components of the HTTP request to send
-   * @param opcode The encoding type to use, either OP_BINARY or OP_TEXT
-   * @note This just indicates the default for frames sent. Certain sockets,
-   * such as voice websockets, may send a combination of OP_TEXT and OP_BINARY
-   * frames, whereas shard websockets will only ever send OP_BINARY for ETF and
-   * OP_TEXT for JSON.
+   * @param opcode The default opcode for outgoing frames, either OP_BINARY
+   * or OP_TEXT
    */
-  websocket_client(cluster *creator, const std::string &hostname,
+  websocket_client(application *creator, const std::string &hostname,
                    const std::string &port    = "443",
                    const std::string &urlpath = "", ws_opcode opcode = OP_TEXT);
 
-  /**
-   * @brief Destroy the websocket client object
-   */
   virtual ~websocket_client() = default;
 
   /**
@@ -230,10 +224,8 @@ class TPP_EXPORT websocket_client : public ssl_connection {
   virtual void one_second_timer() override;
 
   /**
-   * @brief Send OP_CLOSE error code 1000 to the other side of the connection.
-   * This indicates graceful close.
-   * @note This informs Discord to invalidate the session, you cannot resume if
-   * you send this
+   * @brief Sends OP_CLOSE code 1000 (graceful close) to the other side of
+   * the connection.
    */
   void send_close_packet();
 

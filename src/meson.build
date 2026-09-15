@@ -1,6 +1,21 @@
 libtpp_sources = files(
-  'main.cpp',
-  'cluster.cpp'
+  'application.cpp',
+  'dns.cpp',
+  'eventsub.cpp',
+  'eventsub_client.cpp',
+  'http_server.cpp',
+  'http_server_request.cpp',
+  'https_client.cpp',
+  'scope.cpp',
+  'socket.cpp',
+  'socketengine.cpp',
+  'socketengine_poll.cpp',
+  'ssl_connection.cpp',
+  'ssl_context.cpp',
+  'timer.cpp',
+  'session.cpp',
+  'utility.cpp',
+  'websocket.cpp'
 )
 
 cpp_args = [ '-DTPP_BUILD' ]

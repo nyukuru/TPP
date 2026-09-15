@@ -8,6 +8,7 @@
   doxygen,
   pkg-config,
   gtest,
+  nlohmann_json,
   claude-code,
   self,
 }: let
@@ -20,6 +21,7 @@ in
       ninja
       tree
       gtest
+      nlohmann_json
       doxygen
       pkg-config
       claude-code

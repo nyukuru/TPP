@@ -1,46 +1,46 @@
+#include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <string>
 
-#include "tpp/cluster.h"
+#include "tpp/application.h"
+#include "tpp/scope.h"
+#include "tpp/session.h"
 
 int main() {
-  // Get the token from environment variable (similar to DPP examples)
-  const char* token_env = std::getenv("TWITCH_TOKEN");
-  if (!token_env) {
-    std::cerr << "Please set TWITCH_TOKEN environment variable" << std::endl;
-    return 1;
-  }
+  const char        *client_id     = std::getenv("TWITCH_CLIENT_ID");
+  constexpr uint16_t redirect_port = 3000;
 
   try {
-    // Create cluster with chat messages and follows intents
-    tpp::cluster bot(token_env,
-                     tpp::intents::chat_messages | tpp::intents::follows);
+    tpp::application app(client_id, redirect_port);
 
-    std::cout << "Starting Twitch bot..." << std::endl;
-    std::cout << "Token: " << bot.get_token() << std::endl;
-    std::cout << "Bot is running: " << (bot.is_running() ? "Yes" : "No")
+    tpp::scope scopes =
+        tpp::s_user_read_chat | tpp::s_user_write_chat | tpp::s_openid;
+
+    std::string auth_url = app.generate_auth_url(scopes);
+    std::cout << "Open this URL in your browser to authenticate:\n"
+              << auth_url << std::endl;
+
+    app.on_authenticate([](tpp::session &session) {
+      std::cout << "Authenticated as " << session.get_login() << " (user id "
+                << session.get_user_id() << ")" << std::endl;
+
+      session.on_chat_message([&session](const tpp::user   &broadcaster,
+                                         const tpp::user   &chatter,
+                                         const std::string &message) {
+        std::cout << "#" << broadcaster.login << " " << chatter.login << ": "
+                  << message << std::endl;
+        if (message == "ping") {
+          session.send_message("pong");
+        }
+      });
+    });
+
+    std::cout << "Starting Twitch bot, waiting for authentication..."
               << std::endl;
+    app.start(true);
 
-    // Join a channel
-    bot.join_channel("testchannel");
-
-    // Send a message
-    bot.send_message("testchannel", "Hello from TPP bot!");
-
-    // Start the bot (non-blocking for this example)
-    bot.start(false);
-
-    std::cout << "Bot is running: " << (bot.is_running() ? "Yes" : "No")
-              << std::endl;
-
-    // In a real application, you might want to keep the bot running
-    // and handle events, but for this example we'll stop it quickly
-    std::this_thread::sleep_for(std::chrono::seconds(1));
-
-    bot.stop();
-    std::cout << "Bot stopped." << std::endl;
-
-  } catch (const std::exception& e) {
+  } catch (const std::exception &e) {
     std::cerr << "Error: " << e.what() << std::endl;
     return 1;
   }

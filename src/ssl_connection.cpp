@@ -49,7 +49,10 @@
 #  undef OCSP_REQUEST
 #  undef OCSP_RESPONSE
 #endif
+#include <tpp/application.h>
 #include <tpp/dns.h>
+#include <tpp/exception.h>
+#include <tpp/ssl_connection.h>
 #include <tpp/ssl_context.h>
 #include <tpp/wrapped_ssl_ctx.h>
 
@@ -66,20 +69,18 @@ namespace tpp {
 uint64_t last_unique_id {1};
 
 /**
- * @brief This is an opaque class containing openssl library specific
- * structures. We define it this way so that the public facing D++ library
- * doesn't require the openssl headers be available to build against it.
+ * @brief Opaque type holding OpenSSL library specific structures.
  */
 class openssl_connection {
  public:
   /**
    * @brief OpenSSL context
    */
-  SSL_CTX* ctx {nullptr};
+  SSL_CTX *ctx {nullptr};
   /**
    * @brief OpenSSL session
    */
-  SSL* ssl {nullptr};
+  SSL *ssl {nullptr};
 
   ~openssl_connection() = default;
 };
@@ -89,7 +90,7 @@ class openssl_connection {
  */
 struct keepalive_cache_t {
   time_t              created;
-  openssl_connection* ssl;
+  openssl_connection *ssl;
   tpp::socket         sfd;
 };
 
@@ -108,7 +109,7 @@ bool close_socket(tpp::socket sfd) {
 
 std::string get_socket_error() {
 #ifdef _WIN32
-  wchar_t*    wide_buffer {nullptr};
+  wchar_t    *wide_buffer {nullptr};
   std::string message {"Unknown error"};
 
   FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
@@ -151,12 +152,12 @@ bool set_nonblocking(tpp::socket sockfd, bool non_blocking) {
   }
 #endif
   setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY,
-             reinterpret_cast<const char*>(&enable), sizeof(int));
+             reinterpret_cast<const char *>(&enable), sizeof(int));
   return true;
 }
 
 int ssl_connection::start_connecting(tpp::socket            sockfd,
-                                     const struct sockaddr* addr,
+                                     const struct sockaddr *addr,
                                      socklen_t              addrlen) {
   if (!set_nonblocking(sockfd, true)) {
     throw tpp::connection_exception(
@@ -192,36 +193,22 @@ int ssl_connection::start_connecting(tpp::socket            sockfd,
   return 0;
 }
 
-#ifndef _WIN32
-/**
- * @brief Some old Linux and UNIX variants (BSDs) can raise signals for socket
- * errors, such as SIGPIPE etc. We filter these out so we can just concern
- * ourselves with the return codes from the functions instead.
- *
- * @note If there is an existing signal handler, it will be preserved.
- *
- * @param signal Signal code to override
- */
-void set_signal_handler(int signal) {
-  struct sigaction sa {};
-  sigaction(signal, nullptr, &sa);
-  if (sa.sa_flags == 0 && sa.sa_handler == nullptr) {
-    sa = {};
-    sigaction(signal, &sa, nullptr);
-  }
-}
-#endif
-
 uint64_t ssl_connection::get_unique_id() const {
   return unique_id;
 }
 
-ssl_connection::ssl_connection(const std::string& _hostname,
-                               const std::string& _port,
+void ssl_connection::enable_raw_tracing() {
+  raw_trace = true;
+}
+
+ssl_connection::ssl_connection(application       *creator,
+                               const std::string &_hostname,
+                               const std::string &_port,
                                bool plaintext_downgrade, bool reuse)
     : is_server(false)
     , sfd(INVALID_SOCKET)
     , ssl(nullptr)
+    , owner(creator)
     , last_tick(time(nullptr))
     , start(time(nullptr))
     , hostname(_hostname)
@@ -231,27 +218,26 @@ ssl_connection::ssl_connection(const std::string& _hostname,
     , plaintext(plaintext_downgrade)
     , timer_handle(0)
     , unique_id(last_unique_id++)
-    , keepalive(reuse)
-    , owner(creator) {
+    , keepalive(reuse) {
   if (plaintext) {
     ssl = nullptr;
   } else {
     ssl                              = new openssl_connection();
-    detail::wrapped_ssl_ctx* context = detail::generate_ssl_context();
+    detail::wrapped_ssl_ctx *context = detail::generate_ssl_context();
     ssl->ctx                         = context->context;
   }
   try {
     ssl_connection::connect();
-  } catch (const std::exception&) {
+  } catch (const std::exception &) {
     cleanup();
     throw;
   }
 }
 
-ssl_connection::ssl_connection(cluster* creator, socket fd, uint16_t port,
+ssl_connection::ssl_connection(application *creator, socket fd, uint16_t port,
                                bool               plaintext_downgrade,
-                               const std::string& private_key,
-                               const std::string& public_key)
+                               const std::string &private_key,
+                               const std::string &public_key)
     : is_server(true)
     , sfd(fd)
     , ssl(nullptr)
@@ -270,7 +256,7 @@ ssl_connection::ssl_connection(cluster* creator, socket fd, uint16_t port,
     ssl = nullptr;
   } else {
     ssl = new openssl_connection();
-    detail::wrapped_ssl_ctx* context =
+    detail::wrapped_ssl_ctx *context =
         detail::generate_ssl_context(port, private_key, public_key);
     ssl->ctx = context->context;
   }
@@ -288,11 +274,10 @@ void ssl_connection::on_buffer_drained() {
  * socket or call connect() */
 void ssl_connection::connect() {
   /* Resolve hostname to IP */
-  int                    err  = 0;
-  const dns_cache_entry* addr = resolve_hostname(hostname, port);
+  const dns_cache_entry *addr = resolve_hostname(hostname, port);
   sfd                         = addr->make_connecting_socket();
-  address_t destination =
-      addr->get_connecting_address(from_string<uint16_t>(this->port, std::dec));
+  address_t destination       = addr->get_connecting_address(
+      static_cast<uint16_t>(std::stoi(this->port)));
   /* Check if valid connection started */
   if (sfd == ERROR_STATUS) {
     throw tpp::connection_exception(err_connect_failure, get_socket_error());
@@ -316,10 +301,10 @@ std::string ssl_connection::get_cipher() {
   return cipher;
 }
 
-void ssl_connection::log(tpp::loglevel severity, const std::string& msg) const {
+void ssl_connection::log(tpp::loglevel severity, const std::string &msg) const {
 }
 
-void ssl_connection::complete_handshake(const socket_events* ev) {
+void ssl_connection::complete_handshake(const socket_events *ev) {
   if (!ssl || !ssl->ssl) {
     return;
   }
@@ -363,13 +348,13 @@ void ssl_connection::complete_handshake(const socket_events* ev) {
   }
 }
 
-void ssl_connection::do_raw_trace(const std::string& message) const {
+void ssl_connection::do_raw_trace(const std::string &message) const {
   if (raw_trace) {
     log(ll_trace, "RAWTRACE" + message);
   }
 }
 
-void ssl_connection::on_read(socket fd, const struct socket_events& ev) {
+void ssl_connection::on_read(socket fd, const struct socket_events &ev) {
   if (sfd == INVALID_SOCKET) {
     return;
   }
@@ -456,7 +441,7 @@ void ssl_connection::on_read(socket fd, const struct socket_events& ev) {
   }
 }
 
-void ssl_connection::on_write(socket fd, const struct socket_events& e) {
+void ssl_connection::on_write(socket fd, const struct socket_events &e) {
   if (sfd == INVALID_SOCKET) {
     return;
   }
@@ -629,7 +614,7 @@ void ssl_connection::on_write(socket fd, const struct socket_events& e) {
   }
 }
 
-void ssl_connection::on_error(socket fd, const struct socket_events&,
+void ssl_connection::on_error(socket fd, const struct socket_events &,
                               int    error_code) {
   this->close();
 }
@@ -638,7 +623,7 @@ void ssl_connection::read_loop() {
   auto setup_events = [this]() {
     tpp::socket_events events(
         sfd, WANT_READ | WANT_WRITE | WANT_ERROR,
-        [this](socket fd, const struct socket_events& e) {
+        [this](socket fd, const struct socket_events &e) {
           if (this->sfd == INVALID_SOCKET) {
             close_socket(fd);
             owner->socketengine->delete_socket(fd);
@@ -646,7 +631,7 @@ void ssl_connection::read_loop() {
           }
           on_read(fd, e);
         },
-        [this](socket fd, const struct socket_events& e) {
+        [this](socket fd, const struct socket_events &e) {
           if (this->sfd == INVALID_SOCKET) {
             close_socket(fd);
             owner->socketengine->delete_socket(fd);
@@ -654,7 +639,7 @@ void ssl_connection::read_loop() {
           }
           on_write(fd, e);
         },
-        [this](socket fd, const struct socket_events& e, int error_code) {
+        [this](socket fd, const struct socket_events &e, int error_code) {
           do_raw_trace("on_error");
           on_error(fd, e, error_code);
         });
@@ -667,22 +652,15 @@ void ssl_connection::read_loop() {
           one_second_timer();
           if (!tcp_connect_done && time(nullptr) > start + 2 &&
               connect_retries < MAX_RETRIES && sfd != INVALID_SOCKET) {
-            /* Retry failed connect(). This can happen even in the best
-             * situation with bullet-proof hosting. Previously with blocking
-             * connect() there was some leniency in this, but now we have to do
-             * this ourselves.
-             *
-             * Retry up to 3 times, 2 seconds between retries. After this, give
-             * up and let timeout code take the wheel (will likely end with an
-             * exception).
-             */
+            /* Retries up to MAX_RETRIES times, 2 seconds apart, then leaves
+             * it to the timeout code. */
             do_raw_trace("(OUT) connect() retry #" +
                          std::to_string(connect_retries + 1));
             close_socket(sfd);
             owner->socketengine->delete_socket(sfd);
             try {
               ssl_connection::connect();
-            } catch (const std::exception& e) {
+            } catch (const std::exception &e) {
               do_raw_trace("(OUT): connect() exception: " +
                            std::string(e.what()));
             }
@@ -703,7 +681,7 @@ uint64_t ssl_connection::get_bytes_in() {
   return bytes_in;
 }
 
-bool ssl_connection::handle_buffer(std::string& buffer) {
+bool ssl_connection::handle_buffer(std::string &buffer) {
   return true;
 }
 

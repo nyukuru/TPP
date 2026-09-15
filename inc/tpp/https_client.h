@@ -116,7 +116,7 @@ struct http_connect_info {
   std::string scheme;
 
   /**
-   * @brief The request hostname part, e.g. 'discord.com'
+   * @brief The request hostname part, e.g. 'twitch.tv'
    */
   std::string hostname;
 
@@ -232,23 +232,15 @@ class TPP_EXPORT https_client : public ssl_connection {
   http_state state;
 
   /**
-   * @brief Connect to a specific HTTP(S) server and complete a request.
-   *
-   * The constructor will attempt the connection, and return the content.
-   * By the time the constructor completes, the HTTP request will be stored
-   * in the object.
-   *
-   * @note This is a blocking call. It starts a loop which runs non-blocking
-   * functions within it, but does not return until the request completes.
-   * See queues.cpp for how to make this asynchronous.
-   *
+   * @brief Connects to a specific HTTP(S) server and starts a request. The
+   * connection is non-blocking; done is called once the request completes.
    * @param hostname Hostname to connect to
    * @param port Port number to connect to, usually 443 for SSL and 80 for
    * plaintext
    * @param urlpath path part of URL, e.g. "/api"
    * @param verb Request verb, e.g. GET or POST
-   * @param req_body Request body, use dpp::https_client::build_multipart() to
-   * build a multipart MIME body (e.g. for multiple file upload)
+   * @param req_body Request body, use tpp::https_client::build_multipart()
+   * to build a multipart MIME body (e.g. for multiple file upload)
    * @param extra_headers Additional request headers, e.g. user-agent,
    * authorization, etc
    * @param plaintext_connection Set to true to make the connection plaintext
@@ -256,9 +248,9 @@ class TPP_EXPORT https_client : public ssl_connection {
    * @param request_timeout How many seconds before the connection is considered
    * failed if not finished
    * @param protocol Request HTTP protocol (default: 1.1)
-   * @param done Function to call when https_client request is completed
+   * @param done Function to call when the request is completed
    */
-  https_client(cluster *creator, const std::string &hostname,
+  https_client(application *creator, const std::string &hostname,
                uint16_t port = 443, const std::string &urlpath = "/",
                const std::string  &verb          = "GET",
                const std::string  &req_body      = "",
@@ -267,9 +259,6 @@ class TPP_EXPORT https_client : public ssl_connection {
                const std::string            &protocol = "1.1",
                https_client_completion_event done     = {});
 
-  /**
-   * @brief Destroy the https client object
-   */
   virtual ~https_client() override;
 
   /**

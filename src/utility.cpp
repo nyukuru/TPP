@@ -1,7 +1,9 @@
 #include <internal/utility.h>
 
 #include <algorithm>
+#include <cctype>
 #include <charconv>
+#include <map>
 #include <string>
 #include <vector>
 
@@ -19,36 +21,72 @@ std::vector<std::string> tokenize(std::string const &in, const char *sep) {
   return result;
 }
 
-std::string lower(std::string const &in) {
-  std::transform(in.begin(), in.end(), in.begin(),
+std::string lowercase(std::string const &in) {
+  std::string out {in};
+  std::transform(out.begin(), out.end(), out.begin(),
                  [](unsigned char c) { return std::tolower(c); });
+  return out;
 }
 
-/**
- * @brief Convert a numeric value to hex
- *
- * @tparam T numeric type
- * @param i numeric value
- * @param leading_zeroes set to false if you don't want the leading zeroes in
- * the output
- * @return std::string value in hex, the length will be 2* the raw size of the
- * type
- */
-template<typename T>
-std::string to_hex(T i, bool leading_zeroes) {
-  char   str[26] = {0};
-  size_t size    = sizeof(T) * 2;
-  std::to_chars(std::begin(str), std::end(str), i, 16);
-  std::string out {str};
-  if (leading_zeroes && out.length() < size) {
-    out.insert(out.begin(), size - out.length(), '0');
+std::string uppercase(std::string const &in) {
+  std::string out {in};
+  std::transform(out.begin(), out.end(), out.begin(),
+                 [](unsigned char c) { return std::toupper(c); });
+  return out;
+}
+
+std::string url_decode(std::string const &in) {
+  std::string out;
+  out.reserve(in.length());
+  for (std::string::size_type i = 0; i < in.length(); ++i) {
+    if (in[i] == '%' && i + 2 < in.length() &&
+        std::isxdigit((unsigned char) in[i + 1]) &&
+        std::isxdigit((unsigned char) in[i + 2])) {
+      int value = 0;
+      std::from_chars(in.data() + i + 1, in.data() + i + 3, value, 16);
+      out.push_back((char) value);
+      i += 2;
+    } else if (in[i] == '+') {
+      out.push_back(' ');
+    } else {
+      out.push_back(in[i]);
+    }
+  }
+  return out;
+}
+
+std::string url_encode(std::string const &in) {
+  static constexpr char hex[] = "0123456789ABCDEF";
+  std::string           out;
+  out.reserve(in.length() * 3);
+  for (unsigned char c : in) {
+    if (std::isalnum(c) || c == '-' || c == '_' || c == '.' || c == '~') {
+      out.push_back((char) c);
+    } else {
+      out.push_back('%');
+      out.push_back(hex[(c >> 4) & 0x0f]);
+      out.push_back(hex[c & 0x0f]);
+    }
+  }
+  return out;
+}
+
+std::map<std::string, std::string> parse_query_string(std::string const &in) {
+  std::map<std::string, std::string> out;
+  for (auto const &pair : tokenize(in, "&")) {
+    auto eq = pair.find('=');
+    if (eq == std::string::npos) {
+      out.emplace(url_decode(pair), "");
+    } else {
+      out.emplace(url_decode(pair.substr(0, eq)),
+                  url_decode(pair.substr(eq + 1)));
+    }
   }
   return out;
 }
 
 std::string base64_encode(unsigned char const *buf,
                           unsigned int         buffer_length) {
-  /* Quick and dirty base64 encode */
   static constexpr std::string_view to_base64 =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
   static constexpr auto push = [](std::string &dst, unsigned char b0,

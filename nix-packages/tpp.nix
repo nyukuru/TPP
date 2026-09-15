@@ -6,6 +6,7 @@
   gtest,
   lib,
   openssl,
+  nlohmann_json,
 }:
 stdenv.mkDerivation (finalAttrs: {
   pname = "tpp";
@@ -27,6 +28,7 @@ stdenv.mkDerivation (finalAttrs: {
 
   buildInputs = [
     openssl
+    nlohmann_json
   ];
 
   checkInputs = [

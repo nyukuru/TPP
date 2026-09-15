@@ -39,8 +39,7 @@
 namespace tpp {
 
 /**
- * @brief Represents a cached DNS result.
- * Used by the ssl_connection class to store cached copies of dns lookups.
+ * @brief A cached DNS result.
  */
 struct TPP_EXPORT dns_cache_entry {
   /**
@@ -49,9 +48,7 @@ struct TPP_EXPORT dns_cache_entry {
   addrinfo addr;
 
   /**
-   * @brief Resolved address as string.
-   * The metadata is needed to know what type of address it is.
-   * Do not do silly stuff like just looking to see if '.' is in it!
+   * @brief Resolved address as a string. addr holds its address family.
    */
   std::string resolved_addr;
 

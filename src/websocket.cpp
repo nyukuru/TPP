@@ -21,7 +21,6 @@
  ************************************************************************************/
 #include <internal/utility.h>
 #include <tpp/https_client.h>
-#include <tpp/sslconnection.h>
 #include <tpp/websocket.h>
 
 #include <string>
@@ -36,7 +35,7 @@ constexpr size_t        WS_MAX_PAYLOAD_LENGTH_SMALL   = 125;
 constexpr size_t        WS_MAX_PAYLOAD_LENGTH_LARGE   = 65535;
 constexpr size_t        MAXHEADERSIZE                 = sizeof(uint64_t) + 2;
 
-websocket_client::websocket_client(cluster           *creator,
+websocket_client::websocket_client(application       *creator,
                                    const std::string &hostname,
                                    const std::string &port,
                                    const std::string &urlpath, ws_opcode opcode)
@@ -47,18 +46,14 @@ websocket_client::websocket_client(cluster           *creator,
     , timed_out(false)
     , timeout(time(nullptr) + 5) {
   uint64_t k = (time(nullptr) * time(nullptr));
-  /* A 64 bit value as hex with leading zeroes is always 16 chars.
-   *
-   * The request MUST include a header field with the name
-   * |Sec-WebSocket-Key|.  The value of this header field MUST be a
-   * nonce consisting of a randomly selected 16-byte value that has
-   * been base64-encoded (see [Section 4 of
-   * [RFC4648]](https://datatracker.ietf.org/doc/html/rfc4648#section-4)).
-   * The nonce MUST be selected randomly for each connection.
-   */
-  key = utility::to_hex<uint64_t>(k);
-  key = utility::base64_encode(
+  key        = utility::to_hex<uint64_t>(k);
+  key        = utility::base64_encode(
       reinterpret_cast<const unsigned char *>(key.c_str()), key.length());
+
+  /* ssl_connection's own constructor can only call ssl_connection::connect();
+   * this override must be invoked explicitly to send the HTTP Upgrade
+   * request. */
+  websocket_client::connect();
 }
 
 void websocket_client::connect() {
@@ -79,6 +74,7 @@ void websocket_client::connect() {
                                key +
                                "\r\n"
                                "Sec-WebSocket-Version: 13\r\n\r\n");
+  read_loop();
 }
 
 bool websocket_client::handle_frame(const std::string &buffer,
@@ -138,25 +134,14 @@ void websocket_client::write(const std::string_view data, ws_opcode _opcode) {
 
 bool websocket_client::handle_buffer(std::string &buffer) {
   if (state == HTTP_HEADERS) {
-    /* We can expect Twitch to end all packets with this.
-     * If they don't, something is wrong and we should abort.
-     */
     if (buffer.find("\r\n\r\n") == std::string::npos) {
       return false;
     }
 
-    /* Got all headers, proceed to new state */
-
-    /* Get headers string */
     std::string headers = buffer.substr(0, buffer.find("\r\n\r\n"));
-
-    /* Modify buffer, remove headers section */
     buffer.erase(0, buffer.find("\r\n\r\n") + 4);
 
-    /* Process headers into map */
     std::vector<std::string> h = utility::tokenize(headers);
-
-    /* No headers? Something aint right. */
     if (h.empty()) {
       return false;
     }
@@ -164,7 +149,6 @@ bool websocket_client::handle_buffer(std::string &buffer) {
     std::string status_line = h[0];
     h.erase(h.begin());
     std::vector<std::string> status = utility::tokenize(status_line, " ");
-    /* HTTP/1.1 101 Switching Protocols */
     if (status.size() >= 3 && status[1] == "101") {
       for (auto &hd : h) {
         std::string::size_type sep = hd.find(": ");
@@ -184,8 +168,6 @@ bool websocket_client::handle_buffer(std::string &buffer) {
       return false;
     }
   } else if (state == CONNECTED) {
-    /* Process packets until we can't (buffer will erase data until parseheader
-     * returns false) */
     try {
       while (this->parseheader(buffer)) {}
     } catch (const std::exception &e) {
@@ -220,7 +202,7 @@ bool websocket_client::parseheader(std::string &data) {
       if (len1 & WS_MASKBIT) {
         len1 &= ~WS_MASKBIT;
         payloadstartoffset += 2;
-        /* We don't handle masked data, because discord doesn't send it */
+        /* Masked frames are not handled; servers never mask frames. */
         return true;
       }
 
@@ -258,20 +240,15 @@ bool websocket_client::parseheader(std::string &data) {
         return false;
       }
 
-      /* If we received a ping, we need to handle it. */
       if ((opcode & ~WS_FINBIT) == OP_PING) {
         handle_ping(data.substr(payloadstartoffset, len));
-      } else if ((opcode & ~WS_FINBIT) !=
-                 OP_PONG) { /* Otherwise, handle everything else apart from a
-                               PONG. */
-        /* Pass this frame to the deriving class */
+      } else if ((opcode & ~WS_FINBIT) != OP_PONG) {
         if (!this->handle_frame(data.substr(payloadstartoffset, len),
                                 static_cast<ws_opcode>(opcode & ~WS_FINBIT))) {
           return false;
         }
       }
 
-      /* Remove this frame from the input buffer */
       data.erase(data.begin(), data.begin() + payloadstartoffset + len);
 
       return true;
@@ -298,7 +275,6 @@ void websocket_client::one_second_timer() {
   time_t now = time(nullptr);
 
   if (((now % 20) == 0) && (state == CONNECTED)) {
-    /* For sending pings, we send with payload */
     unsigned char out[MAXHEADERSIZE];
     std::string   payload = "keepalive";
     size_t        s       = this->fill_header(out, payload.length(), OP_PING);
@@ -307,7 +283,6 @@ void websocket_client::one_second_timer() {
     ssl_connection::socket_write(payload);
   }
 
-  /* Handle timeouts for connect(), SSL negotiation and HTTP negotiation */
   if (!timed_out && sfd != INVALID_SOCKET) {
     if (!tcp_connect_done && now >= timeout) {
       log(ll_trace, "Websocket connection timed out: connect()");
@@ -327,7 +302,6 @@ void websocket_client::one_second_timer() {
 }
 
 void websocket_client::handle_ping(const std::string &payload) {
-  /* For receiving pings we echo back their payload with the type OP_PONG */
   unsigned char out[MAXHEADERSIZE];
   size_t        s = this->fill_header(out, payload.length(), OP_PONG);
   std::string   header((const char *) out, s);
@@ -336,10 +310,7 @@ void websocket_client::handle_ping(const std::string &payload) {
 }
 
 void websocket_client::send_close_packet() {
-  /* This is a 16 bit value representing 1000 in hex (0x03E8), network order.
-   * For an error/close frame, this is all we need to send, just two bytes
-   * and the header. We do this on shutdown of a websocket for graceful close.
-   */
+  /* Close code 1000, big-endian. */
   std::string   payload = "\x03\xE8";
   unsigned char out[MAXHEADERSIZE];
 

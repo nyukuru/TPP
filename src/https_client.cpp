@@ -29,15 +29,15 @@
 
 namespace tpp {
 
-https_client::https_client(cluster *creator, const std::string &hostname,
+https_client::https_client(application *creator, const std::string &hostname,
                            uint16_t port, const std::string &urlpath,
                            const std::string &verb, const std::string &req_body,
                            const http_headers &extra_headers,
                            bool plaintext_connection, uint16_t request_timeout,
                            const std::string            &protocol,
                            https_client_completion_event done)
-    : ssl_connection(hostname, std::to_string(port), plaintext_connection,
-                     false)
+    : ssl_connection(creator, hostname, std::to_string(port),
+                     plaintext_connection, false)
     , request_type(verb)
     , path(urlpath)
     , request_body(req_body)
@@ -56,7 +56,7 @@ void https_client::connect() {
   state = HTTPS_HEADERS;
   std::string map_headers;
   for (auto &[k, v] : request_headers) {
-    std::string lower_header = tpp::lowercase(k);
+    std::string lower_header = tpp::utility::lowercase(k);
     if (lower_header == "connection" || lower_header == "content-length" ||
         lower_header == "host") {
       continue;
@@ -85,8 +85,6 @@ multipart_content https_client::build_multipart(
     const std::vector<std::string> &contents,
     const std::vector<std::string> &mimetypes) {
   if (filenames.empty() && contents.empty()) {
-    /* If there are no files to upload, there is no need to build a multipart
-     * body */
     if (!json.empty()) {
       return {json, "application/json"};
     }
@@ -106,7 +104,6 @@ multipart_content https_client::build_multipart(
 
   std::string content("--" + boundary);
 
-  /* Special case, single file */
   content +=
       "\r\nContent-Type: application/json\r\nContent-Disposition: form-data; "
       "name=\"payload_json\"" +
@@ -120,7 +117,6 @@ multipart_content https_client::build_multipart(
                two_cr;
     content += contents[0];
   } else {
-    /* Multiple files */
     for (size_t i = 0; i < filenames.size(); ++i) {
       content += part_start + "name=\"files[" + std::to_string(i) +
                  "]\"; filename=\"" + filenames[i] + "\"";
@@ -180,25 +176,16 @@ bool https_client::handle_buffer(std::string &buffer) {
     switch (state) {
       case HTTPS_HEADERS:
         if (buffer.find("\r\n\r\n") != std::string::npos) {
-          /* Add 10 seconds to retrieve body */
           timeout += 10;
 
-          /* Got all headers, proceed to new state */
-
           std::string unparsed = buffer;
-
-          /* Get headers string */
-          std::string headers = buffer.substr(0, buffer.find("\r\n\r\n"));
-
-          /* Modify buffer, remove headers section */
+          std::string headers  = buffer.substr(0, buffer.find("\r\n\r\n"));
           buffer.erase(0, buffer.find("\r\n\r\n") + 4);
 
-          /* Process headers into map */
           std::vector<std::string> h = utility::tokenize(headers);
           if (h.size()) {
             std::string status_line = h[0];
             h.erase(h.begin());
-            /* HTTP/1.1 200 OK */
             std::vector<std::string> req_status =
                 utility::tokenize(status_line, " ");
             if (req_status.size() >= 2 &&
@@ -242,12 +229,10 @@ bool https_client::handle_buffer(std::string &buffer) {
                 continue;
               }
               if (!buffer.empty()) {
-                /* Got a bit of body content in the same read as the headers */
                 continue;
               }
               return true;
             } else {
-              /* Non-HTTP-like response with invalid headers. Go no further. */
               return false;
             }
           } else {
@@ -387,7 +372,7 @@ http_connect_info https_client::get_host_info(std::string url) {
   } else if (url.substr(0, 7) == "http://") {
     hci.scheme = url.substr(0, 4);
     url        = url.substr(7, url.length());
-  } else if (url.substr(0, 11) == "discord.com") {
+  } else if (url.substr(0, 9) == "twitch.tv") {
     hci.scheme = "https";
     hci.is_ssl = true;
     hci.port   = 443;
