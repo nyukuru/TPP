@@ -1,7 +1,9 @@
 #pragma once
 
+#include <nlohmann/json.hpp>
 #include <string>
 
+#include "tpp/event.h"
 #include "tpp/export.h"
 #include "tpp/user.h"
 
@@ -44,6 +46,12 @@ struct TPP_EXPORT eventsub_message {
   std::string subscription_type;
 
   /**
+   * @brief Parsed payload.event (notification) or payload.subscription
+   * (revocation).
+   */
+  nlohmann::json event;
+
+  /**
    * @brief Raw JSON text of payload.event (notification) or
    * payload.subscription (revocation).
    */
@@ -59,21 +67,22 @@ struct TPP_EXPORT eventsub_message {
 TPP_EXPORT eventsub_message parse_eventsub_message(const std::string &json);
 
 /**
- * @brief Fields of a "channel.chat.message" notification event.
+ * @brief Payload delivered through session::on_chat_message for a
+ * "channel.chat.message" notification.
  */
-struct TPP_EXPORT chat_message_event_fields {
+struct TPP_EXPORT chat_message_t : public event_dispatch_t {
   user        broadcaster;
   user        chatter;
-  std::string message_text;
+  std::string message;
 };
 
 /**
- * @brief Extracts "channel.chat.message" fields from a notification's raw
- * event JSON.
- * @param event_json eventsub_message::event_json from a notification whose
+ * @brief Parses "channel.chat.message" fields from a notification's event
+ * data. Does not set chat_message_t::from or ::raw_event.
+ * @param event_data eventsub_message::event from a notification whose
  * subscription_type is "channel.chat.message"
  */
-TPP_EXPORT chat_message_event_fields
-parse_chat_message_event(const std::string &event_json);
+TPP_EXPORT chat_message_t
+parse_chat_message_event(const nlohmann::json &event_data);
 
 }// namespace tpp

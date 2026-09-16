@@ -174,7 +174,7 @@ std::string application::generate_auth_url(const scope       &scopes,
 
   std::string response_type = "token";
   std::string nonce;
-  if (scopes.has(s_openid)) {
+  if (scopes.has(scope::s_openid)) {
     response_type = "token+id_token";
     nonce         = random_hex_nonce();
   }

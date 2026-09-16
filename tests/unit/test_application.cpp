@@ -132,7 +132,7 @@ TEST_F(ApplicationTest, RemoveSessionOnUnknownUserIsNoOp) {
 
 TEST_F(ApplicationTest, GenerateAuthUrlContainsExpectedComponents) {
   tpp::application app(client_id, next_test_port());
-  tpp::scope       scopes(tpp::s_chat_read, tpp::s_chat_edit);
+  tpp::scope       scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit);
 
   std::string url = app.generate_auth_url(scopes);
 
@@ -152,7 +152,7 @@ TEST_F(ApplicationTest, GenerateAuthUrlContainsExpectedComponents) {
 
 TEST_F(ApplicationTest, GenerateAuthUrlWithOpenidRequestsIdToken) {
   tpp::application app(client_id, next_test_port());
-  tpp::scope       scopes(tpp::s_chat_read, tpp::s_openid);
+  tpp::scope       scopes(tpp::scope::s_chat_read, tpp::scope::s_openid);
 
   std::string url = app.generate_auth_url(scopes);
 
@@ -162,7 +162,7 @@ TEST_F(ApplicationTest, GenerateAuthUrlWithOpenidRequestsIdToken) {
 
 TEST_F(ApplicationTest, GenerateAuthUrlIncludesClaimsWhenGiven) {
   tpp::application app(client_id, next_test_port());
-  tpp::scope       scopes(tpp::s_chat_read);
+  tpp::scope       scopes(tpp::scope::s_chat_read);
 
   std::string url =
       app.generate_auth_url(scopes, R"({"userinfo":{"email":null}})");
@@ -172,7 +172,7 @@ TEST_F(ApplicationTest, GenerateAuthUrlIncludesClaimsWhenGiven) {
 
 TEST_F(ApplicationTest, GenerateAuthUrlStateChangesEachCall) {
   tpp::application app(client_id, next_test_port());
-  tpp::scope       scopes(tpp::s_chat_read);
+  tpp::scope       scopes(tpp::scope::s_chat_read);
 
   std::string url1 = app.generate_auth_url(scopes);
   std::string url2 = app.generate_auth_url(scopes);

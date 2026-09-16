@@ -1,5 +1,7 @@
 #include <gtest/gtest.h>
 #include <tpp/application.h>
+#include <tpp/event.h>
+#include <tpp/eventsub.h>
 #include <tpp/session.h>
 #include <tpp/user.h>
 
@@ -57,69 +59,76 @@ TEST_F(SessionTest, GetApplicationReturnsOwner) {
 }
 
 TEST_F(SessionTest, DispatchChatMessageWithNoHookDoesNotCrash) {
-  auto session = make_test_session(app);
-  EXPECT_NO_THROW({
-    session->dispatch_chat_message(
-        tpp::user {"123", "somechannel", "SomeChannel"},
-        tpp::user {"456", "someuser", "SomeUser"}, "hello");
-  });
+  auto                session = make_test_session(app);
+  tpp::chat_message_t event;
+  event.broadcaster = {"123", "somechannel", "SomeChannel"};
+  event.chatter     = {"456", "someuser", "SomeUser"};
+  event.message     = "hello";
+  EXPECT_NO_THROW({ session->on_chat_message.call(event); });
 }
 
 TEST_F(SessionTest, OnChatMessageHookFiresOnDispatch) {
   auto session = make_test_session(app);
 
-  bool        called = false;
-  tpp::user   seen_broadcaster, seen_chatter;
-  std::string seen_msg;
-  session->on_chat_message([&](const tpp::user   &broadcaster,
-                               const tpp::user   &chatter,
-                               const std::string &message) {
-    called           = true;
-    seen_broadcaster = broadcaster;
-    seen_chatter     = chatter;
-    seen_msg         = message;
+  bool                called = false;
+  tpp::chat_message_t seen;
+  session->on_chat_message([&](const tpp::chat_message_t &event) {
+    called = true;
+    seen   = event;
   });
 
-  tpp::user broadcaster {"1971641", "streamer", "Streamer"};
-  tpp::user chatter {"4145994", "viewer32", "Viewer32"};
-  session->dispatch_chat_message(broadcaster, chatter, "ping");
+  tpp::chat_message_t event;
+  event.broadcaster = {"1971641", "streamer", "Streamer"};
+  event.chatter     = {"4145994", "viewer32", "Viewer32"};
+  event.message     = "ping";
+  session->on_chat_message.call(event);
 
   EXPECT_TRUE(called);
-  EXPECT_EQ(seen_broadcaster, broadcaster);
-  EXPECT_EQ(seen_chatter, chatter);
-  EXPECT_EQ(seen_msg, "ping");
+  EXPECT_EQ(seen.broadcaster, event.broadcaster);
+  EXPECT_EQ(seen.chatter, event.chatter);
+  EXPECT_EQ(seen.message, "ping");
 }
 
-TEST_F(SessionTest, OnChatMessageHookCanBeReplaced) {
+TEST_F(SessionTest, OnChatMessageSupportsMultipleHooks) {
   auto session = make_test_session(app);
 
   int calls_to_first  = 0;
   int calls_to_second = 0;
 
-  session->on_chat_message([&](const tpp::user &, const tpp::user &,
-                               const std::string &) { ++calls_to_first; });
-  session->on_chat_message([&](const tpp::user &, const tpp::user &,
-                               const std::string &) { ++calls_to_second; });
+  session->on_chat_message(
+      [&](const tpp::chat_message_t &) { ++calls_to_first; });
+  session->on_chat_message(
+      [&](const tpp::chat_message_t &) { ++calls_to_second; });
 
-  session->dispatch_chat_message(tpp::user {"1", "c", "C"},
-                                 tpp::user {"2", "u", "U"}, "hi");
+  session->on_chat_message.call(tpp::chat_message_t {});
 
-  EXPECT_EQ(calls_to_first, 0);
+  EXPECT_EQ(calls_to_first, 1);
   EXPECT_EQ(calls_to_second, 1);
+}
+
+TEST_F(SessionTest, OnChatMessageDetachStopsFiring) {
+  auto session = make_test_session(app);
+
+  int               calls = 0;
+  tpp::event_handle handle =
+      session->on_chat_message([&](const tpp::chat_message_t &) { ++calls; });
+  session->on_chat_message.detach(handle);
+
+  session->on_chat_message.call(tpp::chat_message_t {});
+
+  EXPECT_EQ(calls, 0);
 }
 
 TEST_F(SessionTest, DispatchCalledMultipleTimesAccumulates) {
   auto session = make_test_session(app);
 
   int count = 0;
-  session->on_chat_message([&](const tpp::user &, const tpp::user &,
-                               const std::string &) { ++count; });
+  session->on_chat_message([&](const tpp::chat_message_t &) { ++count; });
 
-  tpp::user broadcaster {"1", "c", "C"};
-  tpp::user chatter {"2", "u", "U"};
-  session->dispatch_chat_message(broadcaster, chatter, "ping");
-  session->dispatch_chat_message(broadcaster, chatter, "pong");
-  session->dispatch_chat_message(broadcaster, chatter, "ping");
+  tpp::chat_message_t event;
+  session->on_chat_message.call(event);
+  session->on_chat_message.call(event);
+  session->on_chat_message.call(event);
 
   EXPECT_EQ(count, 3);
 }

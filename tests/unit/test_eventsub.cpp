@@ -1,7 +1,7 @@
 #include <gtest/gtest.h>
 #include <tpp/eventsub.h>
 
-using tpp::chat_message_event_fields;
+using tpp::chat_message_t;
 using tpp::eventsub_message;
 using tpp::eventsub_message_type;
 using tpp::parse_chat_message_event;
@@ -122,14 +122,14 @@ TEST(EventSub, ParsesChatMessageNotification) {
   EXPECT_EQ(msg.subscription_type, "channel.chat.message");
   ASSERT_FALSE(msg.event_json.empty());
 
-  chat_message_event_fields fields = parse_chat_message_event(msg.event_json);
+  chat_message_t fields = parse_chat_message_event(msg.event);
   EXPECT_EQ(fields.broadcaster.id, "1971641");
   EXPECT_EQ(fields.broadcaster.login, "streamer");
   EXPECT_EQ(fields.broadcaster.name, "streamer");
   EXPECT_EQ(fields.chatter.id, "4145994");
   EXPECT_EQ(fields.chatter.login, "viewer32");
   EXPECT_EQ(fields.chatter.name, "viewer32");
-  EXPECT_EQ(fields.message_text, "ping");
+  EXPECT_EQ(fields.message, "ping");
 }
 
 TEST(EventSub, ParsesRevocationUsingSubscriptionAsEventJson) {
@@ -180,8 +180,8 @@ TEST(EventSub, GarbageInputDoesNotCrashAndYieldsUnknown) {
 }
 
 TEST(EventSub, ChatMessageFieldsWithMissingFieldsAreEmpty) {
-  chat_message_event_fields fields =
-      parse_chat_message_event(R"({"message":{}})");
+  chat_message_t fields =
+      parse_chat_message_event(nlohmann::json::parse(R"({"message":{}})"));
   EXPECT_EQ(fields.broadcaster.id, "");
-  EXPECT_EQ(fields.message_text, "");
+  EXPECT_EQ(fields.message, "");
 }

@@ -63,21 +63,20 @@ eventsub_message parse_eventsub_message(const std::string &raw) {
 
   const json &event = object_field(payload, "event");
   if (!event.empty()) {
-    msg.event_json = event.dump();
+    msg.event = event;
   } else {
     /* Revocation messages carry "subscription" instead of "event" */
-    msg.event_json = object_field(payload, "subscription").dump();
+    msg.event = object_field(payload, "subscription");
   }
+  msg.event_json = msg.event.dump();
 
   return msg;
 }
 
-chat_message_event_fields parse_chat_message_event(
-    const std::string &event_json) {
-  chat_message_event_fields fields;
+chat_message_t parse_chat_message_event(const json &event) {
+  chat_message_t fields;
 
-  json event = json::parse(event_json, nullptr, false);
-  if (event.is_discarded() || !event.is_object()) {
+  if (!event.is_object()) {
     return fields;
   }
 
@@ -87,7 +86,7 @@ chat_message_event_fields parse_chat_message_event(
   fields.chatter.id        = string_field(event, "chatter_user_id");
   fields.chatter.login     = string_field(event, "chatter_user_login");
   fields.chatter.name      = string_field(event, "chatter_user_name");
-  fields.message_text = string_field(object_field(event, "message"), "text");
+  fields.message = string_field(object_field(event, "message"), "text");
 
   return fields;
 }

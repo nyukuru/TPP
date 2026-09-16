@@ -12,6 +12,7 @@
 #include <vector>
 
 #include "tpp/enums.h"
+#include "tpp/event_router.h"
 #include "tpp/export.h"
 #include "tpp/intents.h"
 #include "tpp/scope.h"
@@ -120,8 +121,9 @@ class TPP_EXPORT application {
    * Redirect URLs", e.g. http://localhost:3000
    * @param client_secret Optional. Required by get_app_access_token() and
    * refresh_user_token().
-   * @param intent_flags Which EventSub subscriptions a session sets up
-   * once its owning user has authenticated
+   * @param intent_flags EventSub subscription categories this application
+   * intends to use. Informational only; sessions do not subscribe to
+   * anything automatically - call session::subscribe() explicitly.
    */
   explicit application(const std::string &client_id, uint16_t redirect_port,
                        const std::string &client_secret = "",

@@ -91,9 +91,10 @@ void session::wire_eventsub_callbacks(eventsub_client *client) {
     }
   };
   client->on_notification = [self](const std::string &subscription_type,
+                                   nlohmann::json    &event,
                                    const std::string &event_json) {
     if (auto s = self.lock()) {
-      s->handle_notification(subscription_type, event_json);
+      s->handle_notification(subscription_type, event, event_json);
     }
   };
 }
@@ -105,8 +106,16 @@ void session::connect() {
 }
 
 void session::on_eventsub_welcome(const std::string &session_id) {
-  if (owner_->get_intents().has(i_chat_messages)) {
-    subscribe_chat_messages(session_id);
+  eventsub_session_id_ = session_id;
+
+  std::vector<event> pending;
+  {
+    std::lock_guard<std::mutex> lock(subscribe_mutex_);
+    eventsub_ready_ = true;
+    pending.swap(pending_subscriptions_);
+  }
+  for (const auto &e : pending) {
+    do_subscribe(e);
   }
 }
 
@@ -132,37 +141,50 @@ void session::on_eventsub_reconnect(const std::string &reconnect_url) {
 }
 
 void session::handle_notification(const std::string &subscription_type,
+                                  nlohmann::json    &event,
                                   const std::string &event_json) {
-  if (subscription_type == "channel.chat.message") {
-    chat_message_event_fields fields = parse_chat_message_event(event_json);
-    dispatch_chat_message(fields.broadcaster, fields.chatter,
-                          fields.message_text);
+  const events::event_handler *handler =
+      events::find_handler(subscription_type);
+  if (handler) {
+    handler->handle(this, event, event_json);
   }
 }
 
-void session::subscribe_chat_messages(const std::string &session_id) {
-  json body {
-      {"type",      "channel.chat.message"                                    },
-      {"version",   "1"                                                       },
-      {"condition", {{"broadcaster_user_id", user_id_}, {"user_id", user_id_}}},
-      {"transport", {{"method", "websocket"}, {"session_id", session_id}}     },
-  };
-
-  helix_post(
-      "/helix/eventsub/subscriptions", body.dump(), [this](https_client *c) {
-        if (c->get_status() != 202) {
-          owner_->log(ll_error,
-                      "Failed to create channel.chat.message subscription "
-                      "for " +
-                          login_ + ", Helix returned status " +
-                          std::to_string(c->get_status()) + ": " +
-                          c->get_content());
-        }
-      });
+void session::subscribe(const event &e) {
+  {
+    std::lock_guard<std::mutex> lock(subscribe_mutex_);
+    if (!eventsub_ready_) {
+      pending_subscriptions_.push_back(e);
+      return;
+    }
+  }
+  do_subscribe(e);
 }
 
-void session::on_chat_message(chat_message_event callback) {
-  on_chat_message_ = std::move(callback);
+void session::do_subscribe(const event &e) {
+  json condition = json::object();
+  for (const auto &[key, value] : e.condition) {
+    condition[key] = value;
+  }
+
+  json body {
+      {"type",      e.type                                            },
+      {"version",   e.version                                         },
+      {"condition", condition                                         },
+      {"transport",
+       {{"method", "websocket"}, {"session_id", eventsub_session_id_}}},
+  };
+
+  helix_post("/helix/eventsub/subscriptions", body.dump(),
+             [this, type = e.type](https_client *c) {
+               if (c->get_status() != 202) {
+                 owner_->log(ll_error, "Failed to create " + type +
+                                           " subscription for " + login_ +
+                                           ", Helix returned status " +
+                                           std::to_string(c->get_status()) +
+                                           ": " + c->get_content());
+               }
+             });
 }
 
 void session::send_message(const std::string &message,
@@ -182,14 +204,6 @@ void session::send_message(const std::string &message,
                                 c->get_content());
     }
   });
-}
-
-void session::dispatch_chat_message(const user        &broadcaster,
-                                    const user        &chatter,
-                                    const std::string &message) const {
-  if (on_chat_message_) {
-    on_chat_message_(broadcaster, chatter, message);
-  }
 }
 
 void session::set_token_expiry(uint64_t expires_in) {

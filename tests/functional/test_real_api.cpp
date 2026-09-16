@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 #include <tpp/application.h>
+#include <tpp/event.h>
 #include <tpp/eventsub_client.h>
 #include <tpp/https_client.h>
 #include <tpp/session.h>
@@ -264,11 +265,6 @@ TEST_F(RealApiTest, CreateSessionTracksSessionAndOpensRealEventSubConnection) {
   tpp::application app(creds.client_id, next_test_port(), creds.client_secret);
   app.start(false);
 
-  /* This is not a real user token (obtaining one needs an interactive
-   * browser round trip through the implicit grant flow), so the automatic
-   * channel.chat.message subscription this triggers is expected to fail -
-   * that's fine, this test is only about application/session
-   * bookkeeping and the EventSub connection itself, both of which are real. */
   auto session =
       app.create_session("000000000", "faketestuser", "invalid_fake_token");
   ASSERT_NE(session, nullptr);
@@ -276,6 +272,13 @@ TEST_F(RealApiTest, CreateSessionTracksSessionAndOpensRealEventSubConnection) {
   EXPECT_EQ(session->get_login(), "faketestuser");
   EXPECT_EQ(app.get_session("000000000"), session);
   EXPECT_EQ(app.get_sessions().size(), 1u);
+
+  /* This is not a real user token (obtaining one needs an interactive
+   * browser round trip through the implicit grant flow), so this
+   * subscription attempt is expected to fail - that's fine, this test is
+   * only about application/session bookkeeping and the EventSub
+   * connection itself, both of which are real. */
+  session->subscribe(tpp::event::channel_chat_message(session->get_user_id()));
 
   std::this_thread::sleep_for(std::chrono::seconds(2));
 

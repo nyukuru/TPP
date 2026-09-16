@@ -77,7 +77,7 @@ bool eventsub_client::handle_frame(const std::string &buffer,
       break;
     case eventsub_message_type::notification:
       if (on_notification) {
-        on_notification(msg.subscription_type, msg.event_json);
+        on_notification(msg.subscription_type, msg.event, msg.event_json);
       }
       break;
     case eventsub_message_type::session_keepalive:

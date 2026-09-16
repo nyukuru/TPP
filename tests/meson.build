@@ -3,6 +3,7 @@ libtpp_unit_sources = files(
   'unit/test_user.cpp',
   'unit/test_scope.cpp',
   'unit/test_intents.cpp',
+  'unit/test_event.cpp',
   'unit/test_eventsub.cpp',
   'unit/test_application.cpp',
   'unit/test_session.cpp',

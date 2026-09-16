@@ -22,8 +22,9 @@ static inline constexpr const char *EVENTSUB_PATH = "/ws";
 
 using eventsub_welcome_event =
     std::function<void(const std::string &session_id)>;
-using eventsub_notification_event = std::function<void(
-    const std::string &subscription_type, const std::string &event_json)>;
+using eventsub_notification_event =
+    std::function<void(const std::string &subscription_type,
+                       nlohmann::json &event, const std::string &event_json)>;
 using eventsub_reconnect_event =
     std::function<void(const std::string &reconnect_url)>;
 

@@ -22,6 +22,7 @@
 #pragma once
 
 #include <tpp/application.h>
+#include <tpp/event_router.h>
 #include <tpp/exception.h>
 #include <tpp/export.h>
 #include <tpp/socket.h>

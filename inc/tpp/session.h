@@ -7,7 +7,11 @@
 #include <memory>
 #include <mutex>
 #include <string>
+#include <vector>
 
+#include "tpp/event.h"
+#include "tpp/event_router.h"
+#include "tpp/eventsub.h"
 #include "tpp/export.h"
 #include "tpp/user.h"
 
@@ -17,12 +21,6 @@ class application;
 class eventsub_client;
 class https_client;
 class oneshot_timer;
-
-/**
- * @brief Fired for every chat message received in this session's channel.
- */
-using chat_message_event = std::function<void(
-    const user &broadcaster, const user &chatter, const std::string &message)>;
 
 /**
  * @brief Represents one Twitch user who has completed an OAuth flow for a
@@ -40,6 +38,7 @@ class TPP_EXPORT session : public std::enable_shared_from_this<session> {
   std::string  id_token_;
   std::string  refresh_token_;
   time_t       token_expires_at_ {0};
+  std::string  eventsub_session_id_;
 
   std::unique_ptr<eventsub_client> eventsub_;
   std::unique_ptr<oneshot_timer>   rotation_timer_;
@@ -47,14 +46,18 @@ class TPP_EXPORT session : public std::enable_shared_from_this<session> {
   std::mutex                               pending_requests_mutex_;
   std::list<std::unique_ptr<https_client>> pending_requests_;
 
-  chat_message_event on_chat_message_ {};
+  std::mutex         subscribe_mutex_;
+  bool               eventsub_ready_ {false};
+  std::vector<event> pending_subscriptions_;
 
   void wire_eventsub_callbacks(eventsub_client *client);
   void on_eventsub_welcome(const std::string &session_id);
   void on_eventsub_reconnect(const std::string &reconnect_url);
   void handle_notification(const std::string &subscription_type,
+                           nlohmann::json    &event,
                            const std::string &event_json);
-  void subscribe_chat_messages(const std::string &session_id);
+
+  void do_subscribe(const event &e);
 
   void helix_post(const std::string &path, const std::string &body,
                   std::function<void(https_client *)> on_done);
@@ -139,12 +142,18 @@ class TPP_EXPORT session : public std::enable_shared_from_this<session> {
   void connect();
 
   /**
-   * @brief Sets the callback fired for every chat message received in
-   * this user's channel. Creates the underlying "channel.chat.message"
-   * EventSub subscription if the owning application's intents include
-   * tpp::i_chat_messages.
+   * @brief Fired for every chat message received in this user's channel,
+   * once subscribed via subscribe() with tpp::event::channel_chat_message().
    */
-  void on_chat_message(chat_message_event callback);
+  event_router_t<chat_message_t> on_chat_message;
+
+  /**
+   * @brief Creates an EventSub subscription for this session. If the
+   * EventSub connection has not yet welcomed, the subscription is created
+   * once it does.
+   * @param e the subscription to create
+   */
+  void subscribe(const event &e);
 
   /**
    * @brief Sends a chat message as this user.
@@ -154,12 +163,6 @@ class TPP_EXPORT session : public std::enable_shared_from_this<session> {
    */
   void send_message(const std::string &message,
                     const std::string &broadcaster_id = "");
-
-  /**
-   * @brief Delivers a chat message notification to the registered hook.
-   */
-  void dispatch_chat_message(const user &broadcaster, const user &chatter,
-                             const std::string &message) const;
 };
 
 }// namespace tpp

@@ -10,460 +10,456 @@
 namespace tpp {
 
 /**
- * @brief Twitch OAuth scopes. Names map to Twitch's scope strings, colons
- * replaced with underscores, e.g. s_channel_manage_polls is
- * "channel:manage:polls". Combine values with `|` or pass several to
- * tpp::scope's constructor.
- */
-enum scopes : std::size_t {
-  /**
-   * @brief View analytics data for the user's owned Twitch Extensions.
-   */
-  s_analytics_read_extensions,
-
-  /**
-   * @brief View analytics data for the user's games.
-   */
-  s_analytics_read_games,
-
-  /**
-   * @brief View Bits information for a channel.
-   */
-  s_bits_read,
-
-  /**
-   * @brief Join a channel's chatroom as a bot user and perform
-   * chat-related actions.
-   */
-  s_channel_bot,
-
-  /**
-   * @brief Run commercials on a channel.
-   */
-  s_channel_edit_commercial,
-
-  /**
-   * @brief Manage a channel's ad schedule.
-   */
-  s_channel_manage_ads,
-
-  /**
-   * @brief Manage a channel's stream title, category, and other broadcast
-   * settings.
-   */
-  s_channel_manage_broadcast,
-
-  /**
-   * @brief Manage Clips for a channel.
-   */
-  s_channel_manage_clips,
-
-  /**
-   * @brief Manage a channel's active Extensions.
-   */
-  s_channel_manage_extensions,
-
-  /**
-   * @brief Manage Guest Star for the user's channel.
-   */
-  s_channel_manage_guest_star,
-
-  /**
-   * @brief Add or remove the moderator role on the user's channel.
-   */
-  s_channel_manage_moderators,
-
-  /**
-   * @brief Manage a channel's polls.
-   */
-  s_channel_manage_polls,
-
-  /**
-   * @brief Manage a channel's Predictions.
-   */
-  s_channel_manage_predictions,
-
-  /**
-   * @brief Start or cancel a raid on another channel.
-   */
-  s_channel_manage_raids,
-
-  /**
-   * @brief Manage a channel's Channel Points custom rewards and
-   * redemptions.
-   */
-  s_channel_manage_redemptions,
-
-  /**
-   * @brief Manage a channel's stream schedule.
-   */
-  s_channel_manage_schedule,
-
-  /**
-   * @brief Manage a channel's videos, including deleting them.
-   */
-  s_channel_manage_videos,
-
-  /**
-   * @brief Add or remove the VIP role on the user's channel.
-   */
-  s_channel_manage_vips,
-
-  /**
-   * @brief Perform moderation actions in a channel.
-   */
-  s_channel_moderate,
-
-  /**
-   * @brief View a channel's ad schedule and details.
-   */
-  s_channel_read_ads,
-
-  /**
-   * @brief View a channel's charity campaign and donations.
-   */
-  s_channel_read_charity,
-
-  /**
-   * @brief View the list of users with editor permissions on a channel.
-   */
-  s_channel_read_editors,
-
-  /**
-   * @brief View a channel's Creator Goals.
-   */
-  s_channel_read_goals,
-
-  /**
-   * @brief View Guest Star details for the user's channel.
-   */
-  s_channel_read_guest_star,
-
-  /**
-   * @brief View Hype Train information for a channel.
-   */
-  s_channel_read_hype_train,
-
-  /**
-   * @brief View a channel's polls.
-   */
-  s_channel_read_polls,
-
-  /**
-   * @brief View a channel's Predictions.
-   */
-  s_channel_read_predictions,
-
-  /**
-   * @brief View a channel's Channel Points custom rewards and
-   * redemptions.
-   */
-  s_channel_read_redemptions,
-
-  /**
-   * @brief View a channel's stream key.
-   */
-  s_channel_read_stream_key,
-
-  /**
-   * @brief View the list of users subscribed to a channel.
-   */
-  s_channel_read_subscriptions,
-
-  /**
-   * @brief View the list of VIPs on the user's channel.
-   */
-  s_channel_read_vips,
-
-  /**
-   * @brief Send chat messages to a chatroom over the (legacy) IRC
-   * connection.
-   */
-  s_chat_edit,
-
-  /**
-   * @brief View chat messages in a chatroom over the (legacy) IRC
-   * connection.
-   */
-  s_chat_read,
-
-  /**
-   * @brief Create and edit Clips for a channel.
-   */
-  s_clips_edit,
-
-  /**
-   * @brief Manage Clips for a channel as an editor.
-   */
-  s_editor_manage_clips,
-
-  /**
-   * @brief View a channel's moderation data, including bans, timeouts, and
-   * AutoMod settings.
-   */
-  s_moderation_read,
-
-  /**
-   * @brief Send announcements in channels the user moderates.
-   */
-  s_moderator_manage_announcements,
-
-  /**
-   * @brief Manage messages held for review by AutoMod in channels the
-   * user moderates.
-   */
-  s_moderator_manage_automod,
-
-  /**
-   * @brief Manage a broadcaster's AutoMod settings.
-   */
-  s_moderator_manage_automod_settings,
-
-  /**
-   * @brief Ban and unban users in channels the user moderates.
-   */
-  s_moderator_manage_banned_users,
-
-  /**
-   * @brief Manage a broadcaster's list of blocked terms.
-   */
-  s_moderator_manage_blocked_terms,
-
-  /**
-   * @brief Delete chat messages in channels the user moderates.
-   */
-  s_moderator_manage_chat_messages,
-
-  /**
-   * @brief Manage a broadcaster's chat room settings.
-   */
-  s_moderator_manage_chat_settings,
-
-  /**
-   * @brief Manage Guest Star for channels the user moderates.
-   */
-  s_moderator_manage_guest_star,
-
-  /**
-   * @brief Manage a broadcaster's Shield Mode status.
-   */
-  s_moderator_manage_shield_mode,
-
-  /**
-   * @brief Send Shoutouts on behalf of channels the user moderates.
-   */
-  s_moderator_manage_shoutouts,
-
-  /**
-   * @brief Manage suspicious user status in channels the user moderates.
-   */
-  s_moderator_manage_suspicious_users,
-
-  /**
-   * @brief Resolve unban requests in channels the user moderates.
-   */
-  s_moderator_manage_unban_requests,
-
-  /**
-   * @brief Warn users in channels the user moderates.
-   */
-  s_moderator_manage_warnings,
-
-  /**
-   * @brief View a broadcaster's AutoMod settings.
-   */
-  s_moderator_read_automod_settings,
-
-  /**
-   * @brief View the list of banned/timed-out users in channels the user
-   * moderates.
-   */
-  s_moderator_read_banned_users,
-
-  /**
-   * @brief View a broadcaster's list of blocked terms.
-   */
-  s_moderator_read_blocked_terms,
-
-  /**
-   * @brief View deleted chat messages in channels the user moderates.
-   */
-  s_moderator_read_chat_messages,
-
-  /**
-   * @brief View a broadcaster's chat room settings.
-   */
-  s_moderator_read_chat_settings,
-
-  /**
-   * @brief View the list of users in a channel's chat room.
-   */
-  s_moderator_read_chatters,
-
-  /**
-   * @brief View the followers of a broadcaster.
-   */
-  s_moderator_read_followers,
-
-  /**
-   * @brief View Guest Star details for channels the user moderates.
-   */
-  s_moderator_read_guest_star,
-
-  /**
-   * @brief View the list of moderators in channels the user moderates.
-   */
-  s_moderator_read_moderators,
-
-  /**
-   * @brief View a broadcaster's Shield Mode status.
-   */
-  s_moderator_read_shield_mode,
-
-  /**
-   * @brief View the Shoutouts given and received by a broadcaster.
-   */
-  s_moderator_read_shoutouts,
-
-  /**
-   * @brief View suspicious user activity in channels the user moderates.
-   */
-  s_moderator_read_suspicious_users,
-
-  /**
-   * @brief View unban requests in channels the user moderates.
-   */
-  s_moderator_read_unban_requests,
-
-  /**
-   * @brief View the list of VIPs in channels the user moderates.
-   */
-  s_moderator_read_vips,
-
-  /**
-   * @brief View warnings given to users in channels the user moderates.
-   */
-  s_moderator_read_warnings,
-
-  /**
-   * @brief Join a channel's chatroom as this user, appearing as a bot.
-   */
-  s_user_bot,
-
-  /**
-   * @brief Manage a user's profile information.
-   */
-  s_user_edit,
-
-  /**
-   * @brief View and edit a user's broadcasting configuration, including
-   * Extension configuration.
-   */
-  s_user_edit_broadcast,
-
-  /**
-   * @brief Manage the block list of a user.
-   */
-  s_user_manage_blocked_users,
-
-  /**
-   * @brief Update the color used for the user's name in chat.
-   */
-  s_user_manage_chat_color,
-
-  /**
-   * @brief Receive and send whispers on the user's behalf.
-   */
-  s_user_manage_whispers,
-
-  /**
-   * @brief View the block list of a user.
-   */
-  s_user_read_blocked_users,
-
-  /**
-   * @brief View a user's broadcasting configuration, including Extension
-   * configuration.
-   */
-  s_user_read_broadcast,
-
-  /**
-   * @brief Receive chat messages and notifications for a user via
-   * EventSub.
-   */
-  s_user_read_chat,
-
-  /**
-   * @brief View a user's email address.
-   */
-  s_user_read_email,
-
-  /**
-   * @brief View emotes available to a user.
-   */
-  s_user_read_emotes,
-
-  /**
-   * @brief View the list of channels a user follows.
-   */
-  s_user_read_follows,
-
-  /**
-   * @brief View the list of channels a user has moderator privileges in.
-   */
-  s_user_read_moderated_channels,
-
-  /**
-   * @brief View whether a user is subscribed to specific channels.
-   */
-  s_user_read_subscriptions,
-
-  /**
-   * @brief Receive whispers sent to a user.
-   */
-  s_user_read_whispers,
-
-  /**
-   * @brief Send chat messages to a chatroom via EventSub/Helix, without an
-   * IRC connection.
-   */
-  s_user_write_chat,
-
-  /**
-   * @brief Receive whisper messages for a user over the (legacy) PubSub
-   * connection.
-   */
-  s_whispers_read,
-
-  /**
-   * @brief Requests an OIDC ID token alongside the access token. Required
-   * if you want application::on_authenticate to receive a non-empty
-   * id_token.
-   */
-  s_openid,
-
-  /**
-   * @brief Not a real scope. The number of scopes above.
-   */
-  s_count,
-};
-
-/**
- * @brief Number of scopes tpp::scope can hold.
- */
-constexpr std::size_t scope_bit_count = s_count;
-
-/**
- * @brief A set of tpp::scopes. Serializes to the space-delimited scope
- * list Twitch expects in the "scope" query parameter of the authorization
- * URL, e.g. "chat:read chat:edit openid".
+ * @brief A set of tpp::scope::scopes. Serializes to the space-delimited
+ * scope list Twitch expects in the "scope" query parameter of the
+ * authorization URL, e.g. "chat:read chat:edit openid".
  */
 class TPP_EXPORT scope {
+ public:
+  /**
+   * @brief Twitch OAuth scopes. Names map to Twitch's scope strings,
+   * colons replaced with underscores, e.g. s_channel_manage_polls is
+   * "channel:manage:polls". Combine values with `|` or pass several to
+   * tpp::scope's constructor.
+   */
+  enum scopes : std::size_t {
+    /**
+     * @brief View analytics data for the user's owned Twitch Extensions.
+     */
+    s_analytics_read_extensions,
+
+    /**
+     * @brief View analytics data for the user's games.
+     */
+    s_analytics_read_games,
+
+    /**
+     * @brief View Bits information for a channel.
+     */
+    s_bits_read,
+
+    /**
+     * @brief Join a channel's chatroom as a bot user and perform
+     * chat-related actions.
+     */
+    s_channel_bot,
+
+    /**
+     * @brief Run commercials on a channel.
+     */
+    s_channel_edit_commercial,
+
+    /**
+     * @brief Manage a channel's ad schedule.
+     */
+    s_channel_manage_ads,
+
+    /**
+     * @brief Manage a channel's stream title, category, and other broadcast
+     * settings.
+     */
+    s_channel_manage_broadcast,
+
+    /**
+     * @brief Manage Clips for a channel.
+     */
+    s_channel_manage_clips,
+
+    /**
+     * @brief Manage a channel's active Extensions.
+     */
+    s_channel_manage_extensions,
+
+    /**
+     * @brief Manage Guest Star for the user's channel.
+     */
+    s_channel_manage_guest_star,
+
+    /**
+     * @brief Add or remove the moderator role on the user's channel.
+     */
+    s_channel_manage_moderators,
+
+    /**
+     * @brief Manage a channel's polls.
+     */
+    s_channel_manage_polls,
+
+    /**
+     * @brief Manage a channel's Predictions.
+     */
+    s_channel_manage_predictions,
+
+    /**
+     * @brief Start or cancel a raid on another channel.
+     */
+    s_channel_manage_raids,
+
+    /**
+     * @brief Manage a channel's Channel Points custom rewards and
+     * redemptions.
+     */
+    s_channel_manage_redemptions,
+
+    /**
+     * @brief Manage a channel's stream schedule.
+     */
+    s_channel_manage_schedule,
+
+    /**
+     * @brief Manage a channel's videos, including deleting them.
+     */
+    s_channel_manage_videos,
+
+    /**
+     * @brief Add or remove the VIP role on the user's channel.
+     */
+    s_channel_manage_vips,
+
+    /**
+     * @brief Perform moderation actions in a channel.
+     */
+    s_channel_moderate,
+
+    /**
+     * @brief View a channel's ad schedule and details.
+     */
+    s_channel_read_ads,
+
+    /**
+     * @brief View a channel's charity campaign and donations.
+     */
+    s_channel_read_charity,
+
+    /**
+     * @brief View the list of users with editor permissions on a channel.
+     */
+    s_channel_read_editors,
+
+    /**
+     * @brief View a channel's Creator Goals.
+     */
+    s_channel_read_goals,
+
+    /**
+     * @brief View Guest Star details for the user's channel.
+     */
+    s_channel_read_guest_star,
+
+    /**
+     * @brief View Hype Train information for a channel.
+     */
+    s_channel_read_hype_train,
+
+    /**
+     * @brief View a channel's polls.
+     */
+    s_channel_read_polls,
+
+    /**
+     * @brief View a channel's Predictions.
+     */
+    s_channel_read_predictions,
+
+    /**
+     * @brief View a channel's Channel Points custom rewards and
+     * redemptions.
+     */
+    s_channel_read_redemptions,
+
+    /**
+     * @brief View a channel's stream key.
+     */
+    s_channel_read_stream_key,
+
+    /**
+     * @brief View the list of users subscribed to a channel.
+     */
+    s_channel_read_subscriptions,
+
+    /**
+     * @brief View the list of VIPs on the user's channel.
+     */
+    s_channel_read_vips,
+
+    /**
+     * @brief Send chat messages to a chatroom over the (legacy) IRC
+     * connection.
+     */
+    s_chat_edit,
+
+    /**
+     * @brief View chat messages in a chatroom over the (legacy) IRC
+     * connection.
+     */
+    s_chat_read,
+
+    /**
+     * @brief Create and edit Clips for a channel.
+     */
+    s_clips_edit,
+
+    /**
+     * @brief Manage Clips for a channel as an editor.
+     */
+    s_editor_manage_clips,
+
+    /**
+     * @brief View a channel's moderation data, including bans, timeouts, and
+     * AutoMod settings.
+     */
+    s_moderation_read,
+
+    /**
+     * @brief Send announcements in channels the user moderates.
+     */
+    s_moderator_manage_announcements,
+
+    /**
+     * @brief Manage messages held for review by AutoMod in channels the
+     * user moderates.
+     */
+    s_moderator_manage_automod,
+
+    /**
+     * @brief Manage a broadcaster's AutoMod settings.
+     */
+    s_moderator_manage_automod_settings,
+
+    /**
+     * @brief Ban and unban users in channels the user moderates.
+     */
+    s_moderator_manage_banned_users,
+
+    /**
+     * @brief Manage a broadcaster's list of blocked terms.
+     */
+    s_moderator_manage_blocked_terms,
+
+    /**
+     * @brief Delete chat messages in channels the user moderates.
+     */
+    s_moderator_manage_chat_messages,
+
+    /**
+     * @brief Manage a broadcaster's chat room settings.
+     */
+    s_moderator_manage_chat_settings,
+
+    /**
+     * @brief Manage Guest Star for channels the user moderates.
+     */
+    s_moderator_manage_guest_star,
+
+    /**
+     * @brief Manage a broadcaster's Shield Mode status.
+     */
+    s_moderator_manage_shield_mode,
+
+    /**
+     * @brief Send Shoutouts on behalf of channels the user moderates.
+     */
+    s_moderator_manage_shoutouts,
+
+    /**
+     * @brief Manage suspicious user status in channels the user moderates.
+     */
+    s_moderator_manage_suspicious_users,
+
+    /**
+     * @brief Resolve unban requests in channels the user moderates.
+     */
+    s_moderator_manage_unban_requests,
+
+    /**
+     * @brief Warn users in channels the user moderates.
+     */
+    s_moderator_manage_warnings,
+
+    /**
+     * @brief View a broadcaster's AutoMod settings.
+     */
+    s_moderator_read_automod_settings,
+
+    /**
+     * @brief View the list of banned/timed-out users in channels the user
+     * moderates.
+     */
+    s_moderator_read_banned_users,
+
+    /**
+     * @brief View a broadcaster's list of blocked terms.
+     */
+    s_moderator_read_blocked_terms,
+
+    /**
+     * @brief View deleted chat messages in channels the user moderates.
+     */
+    s_moderator_read_chat_messages,
+
+    /**
+     * @brief View a broadcaster's chat room settings.
+     */
+    s_moderator_read_chat_settings,
+
+    /**
+     * @brief View the list of users in a channel's chat room.
+     */
+    s_moderator_read_chatters,
+
+    /**
+     * @brief View the followers of a broadcaster.
+     */
+    s_moderator_read_followers,
+
+    /**
+     * @brief View Guest Star details for channels the user moderates.
+     */
+    s_moderator_read_guest_star,
+
+    /**
+     * @brief View the list of moderators in channels the user moderates.
+     */
+    s_moderator_read_moderators,
+
+    /**
+     * @brief View a broadcaster's Shield Mode status.
+     */
+    s_moderator_read_shield_mode,
+
+    /**
+     * @brief View the Shoutouts given and received by a broadcaster.
+     */
+    s_moderator_read_shoutouts,
+
+    /**
+     * @brief View suspicious user activity in channels the user moderates.
+     */
+    s_moderator_read_suspicious_users,
+
+    /**
+     * @brief View unban requests in channels the user moderates.
+     */
+    s_moderator_read_unban_requests,
+
+    /**
+     * @brief View the list of VIPs in channels the user moderates.
+     */
+    s_moderator_read_vips,
+
+    /**
+     * @brief View warnings given to users in channels the user moderates.
+     */
+    s_moderator_read_warnings,
+
+    /**
+     * @brief Join a channel's chatroom as this user, appearing as a bot.
+     */
+    s_user_bot,
+
+    /**
+     * @brief Manage a user's profile information.
+     */
+    s_user_edit,
+
+    /**
+     * @brief View and edit a user's broadcasting configuration, including
+     * Extension configuration.
+     */
+    s_user_edit_broadcast,
+
+    /**
+     * @brief Manage the block list of a user.
+     */
+    s_user_manage_blocked_users,
+
+    /**
+     * @brief Update the color used for the user's name in chat.
+     */
+    s_user_manage_chat_color,
+
+    /**
+     * @brief Receive and send whispers on the user's behalf.
+     */
+    s_user_manage_whispers,
+
+    /**
+     * @brief View the block list of a user.
+     */
+    s_user_read_blocked_users,
+
+    /**
+     * @brief View a user's broadcasting configuration, including Extension
+     * configuration.
+     */
+    s_user_read_broadcast,
+
+    /**
+     * @brief Receive chat messages and notifications for a user via
+     * EventSub.
+     */
+    s_user_read_chat,
+
+    /**
+     * @brief View a user's email address.
+     */
+    s_user_read_email,
+
+    /**
+     * @brief View emotes available to a user.
+     */
+    s_user_read_emotes,
+
+    /**
+     * @brief View the list of channels a user follows.
+     */
+    s_user_read_follows,
+
+    /**
+     * @brief View the list of channels a user has moderator privileges in.
+     */
+    s_user_read_moderated_channels,
+
+    /**
+     * @brief View whether a user is subscribed to specific channels.
+     */
+    s_user_read_subscriptions,
+
+    /**
+     * @brief Receive whispers sent to a user.
+     */
+    s_user_read_whispers,
+
+    /**
+     * @brief Send chat messages to a chatroom via EventSub/Helix, without an
+     * IRC connection.
+     */
+    s_user_write_chat,
+
+    /**
+     * @brief Receive whisper messages for a user over the (legacy) PubSub
+     * connection.
+     */
+    s_whispers_read,
+
+    /**
+     * @brief Requests an OIDC ID token alongside the access token. Required
+     * if you want application::on_authenticate to receive a non-empty
+     * id_token.
+     */
+    s_openid,
+
+    /**
+     * @brief Not a real scope. The number of scopes above.
+     */
+    s_count,
+  };
+
  protected:
   /**
    * @brief The set scopes.
    */
-  std::bitset<scope_bit_count> value {};
+  std::bitset<s_count> value {};
 
  public:
   /**
@@ -597,7 +593,7 @@ class TPP_EXPORT scope {
  * @brief Union of two scopes.
  * @return a scope set containing lhs and rhs
  */
-inline scope operator|(scopes lhs, scopes rhs) noexcept {
+inline scope operator|(scope::scopes lhs, scope::scopes rhs) noexcept {
   return scope(lhs, rhs);
 }
 
@@ -605,7 +601,7 @@ inline scope operator|(scopes lhs, scopes rhs) noexcept {
  * @brief Adds a scope to a scope set.
  * @return a scope set containing lhs and rhs
  */
-inline scope operator|(const scope &lhs, scopes rhs) noexcept {
+inline scope operator|(const scope &lhs, scope::scopes rhs) noexcept {
   return lhs | scope(rhs);
 }
 
@@ -613,7 +609,7 @@ inline scope operator|(const scope &lhs, scopes rhs) noexcept {
  * @brief Adds a scope to a scope set.
  * @return a scope set containing lhs and rhs
  */
-inline scope operator|(scopes lhs, const scope &rhs) noexcept {
+inline scope operator|(scope::scopes lhs, const scope &rhs) noexcept {
   return scope(lhs) | rhs;
 }
 
@@ -621,7 +617,7 @@ inline scope operator|(scopes lhs, const scope &rhs) noexcept {
  * @brief Adds a scope to a scope set.
  * @return reference to lhs
  */
-inline scope &operator|=(scope &lhs, scopes rhs) noexcept {
+inline scope &operator|=(scope &lhs, scope::scopes rhs) noexcept {
   return lhs |= scope(rhs);
 }
 
@@ -629,7 +625,7 @@ inline scope &operator|=(scope &lhs, scopes rhs) noexcept {
  * @brief Intersection of a scope set with a single scope.
  * @return a scope set containing rhs if lhs has it set, otherwise empty
  */
-inline scope operator&(const scope &lhs, scopes rhs) noexcept {
+inline scope operator&(const scope &lhs, scope::scopes rhs) noexcept {
   return lhs & scope(rhs);
 }
 
@@ -637,7 +633,7 @@ inline scope operator&(const scope &lhs, scopes rhs) noexcept {
  * @brief Intersection of a scope set with a single scope.
  * @return a scope set containing lhs if rhs has it set, otherwise empty
  */
-inline scope operator&(scopes lhs, const scope &rhs) noexcept {
+inline scope operator&(scope::scopes lhs, const scope &rhs) noexcept {
   return scope(lhs) & rhs;
 }
 
@@ -645,7 +641,7 @@ inline scope operator&(scopes lhs, const scope &rhs) noexcept {
  * @brief Intersection of two scopes.
  * @return a scope set containing lhs if lhs equals rhs, otherwise empty
  */
-inline scope operator&(scopes lhs, scopes rhs) noexcept {
+inline scope operator&(scope::scopes lhs, scope::scopes rhs) noexcept {
   return scope(lhs) & scope(rhs);
 }
 
@@ -653,7 +649,7 @@ inline scope operator&(scopes lhs, scopes rhs) noexcept {
  * @brief Clears lhs's scope unless it equals rhs.
  * @return reference to lhs
  */
-inline scope &operator&=(scope &lhs, scopes rhs) noexcept {
+inline scope &operator&=(scope &lhs, scope::scopes rhs) noexcept {
   return lhs &= scope(rhs);
 }
 
