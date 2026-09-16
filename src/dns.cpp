@@ -30,7 +30,7 @@ namespace tpp {
 constexpr time_t one_hour = 60 * 60;
 
 std::shared_mutex dns_cache_mutex;
-dns_cache_t       dns_cache;
+dns_cache_t dns_cache;
 
 /**
  * @brief Get address length
@@ -48,13 +48,12 @@ socket dns_cache_entry::make_connecting_socket() const {
   return ::socket(addr.ai_family, addr.ai_socktype, addr.ai_protocol);
 }
 
-const dns_cache_entry *resolve_hostname(const std::string &hostname,
-                                        const std::string &port) {
-  addrinfo                    hints, *addrs;
+const dns_cache_entry *resolve_hostname(const std::string &hostname, const std::string &port) {
+  addrinfo hints, *addrs;
   dns_cache_t::const_iterator iter;
-  time_t                      now = time(nullptr);
-  int                         error;
-  bool                        exists = false;
+  time_t now = time(nullptr);
+  int error;
+  bool exists = false;
 
   {
     std::shared_lock dns_cache_lock(dns_cache_mutex);
@@ -75,7 +74,7 @@ const dns_cache_entry *resolve_hostname(const std::string &hostname,
   }
 
   memset(&hints, 0, sizeof(addrinfo));
-  hints.ai_family   = AF_INET;
+  hints.ai_family = AF_INET;
   hints.ai_socktype = SOCK_STREAM;
   hints.ai_protocol = IPPROTO_TCP;
 
@@ -85,14 +84,14 @@ const dns_cache_entry *resolve_hostname(const std::string &hostname,
 
   {
     std::unique_lock dns_cache_lock(dns_cache_mutex);
-    auto             cache_entry = std::make_unique<dns_cache_entry>();
+    auto cache_entry = std::make_unique<dns_cache_entry>();
 
     for (struct addrinfo *rp = addrs; rp != nullptr; rp = rp->ai_next) {
       if (rp->ai_family != AF_INET) {
         continue;
       }
       memcpy(&cache_entry->addr, rp, sizeof(addrinfo));
-      char        buffer[128];
+      char buffer[128];
       sockaddr_in in {};
       std::memcpy(&in, rp->ai_addr, sizeof(sockaddr_in));
       if (inet_ntop(rp->ai_family, &in.sin_addr, buffer, sizeof(buffer))) {

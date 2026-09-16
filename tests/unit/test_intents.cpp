@@ -27,8 +27,7 @@ TEST(Intent, BitwiseOrCombinesTwoIntentValues) {
 }
 
 TEST(Intent, BitwiseOrChainsAcrossMoreThanTwoValues) {
-  tpp::intent intents =
-      tpp::i_chat_messages | tpp::i_channel_points | tpp::i_raids;
+  tpp::intent intents = tpp::i_chat_messages | tpp::i_channel_points | tpp::i_raids;
   EXPECT_TRUE(intents.has(tpp::i_chat_messages));
   EXPECT_TRUE(intents.has(tpp::i_channel_points));
   EXPECT_TRUE(intents.has(tpp::i_raids));

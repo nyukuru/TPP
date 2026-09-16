@@ -35,8 +35,7 @@ namespace tpp {
 /**
  * @brief Callback type for HTTP server request callbacks
  */
-using http_server_request_event =
-    std::function<void(class http_server_request *)>;
+using http_server_request_event = std::function<void(class http_server_request *)>;
 
 /**
  * @brief A single inbound HTTP(S) request received by tpp::http_server.
@@ -175,9 +174,7 @@ class TPP_EXPORT http_server_request : public ssl_connection {
    * @param public_key if SSL, the path to the public key PEM
    * @param handle_request request handler callback
    */
-  http_server_request(application *creator, socket fd, uint16_t port,
-                      bool plaintext_downgrade, const std::string &private_key,
-                      const std::string        &public_key,
+  http_server_request(conduit *creator, socket fd, uint16_t port, bool plaintext_downgrade, const std::string &private_key, const std::string &public_key,
                       http_server_request_event handle_request);
 
   virtual ~http_server_request() override;
@@ -206,8 +203,7 @@ class TPP_EXPORT http_server_request : public ssl_connection {
    * @return Header content or empty string if not found. If multiple
    * values have the same header_name, this will return one of them.
    */
-  [[nodiscard]] const std::string get_header(
-      const std::string &header_name) const;
+  [[nodiscard]] const std::string get_header(const std::string &header_name) const;
 
   /**
    * @brief Get the number of headers with the same header name
@@ -222,8 +218,7 @@ class TPP_EXPORT http_server_request : public ssl_connection {
    * @return A list of headers with the same name, or an empty list if not
    * found
    */
-  [[nodiscard]] std::list<std::string> get_header_list(
-      const std::string &header_name) const;
+  [[nodiscard]] std::list<std::string> get_header_list(const std::string &header_name) const;
 
   /**
    * @brief Get all HTTP request headers
@@ -237,8 +232,7 @@ class TPP_EXPORT http_server_request : public ssl_connection {
    * @param value header value
    * @return ref to self
    */
-  http_server_request &set_response_header(const std::string &header,
-                                           const std::string &value);
+  http_server_request &set_response_header(const std::string &header, const std::string &value);
 
   /**
    * @brief Set the response body

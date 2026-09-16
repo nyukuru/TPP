@@ -444,7 +444,7 @@ class TPP_EXPORT scope {
 
     /**
      * @brief Requests an OIDC ID token alongside the access token. Required
-     * if you want application::on_authenticate to receive a non-empty
+     * if you want conduit::on_authenticate to receive a non-empty
      * id_token.
      */
     s_openid,
@@ -508,8 +508,7 @@ class TPP_EXPORT scope {
    * @return reference to self
    */
   template<typename... T>
-  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), scope &> add(
-      T... values) noexcept {
+  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), scope &> add(T... values) noexcept {
     (value.set(values), ...);
     return *this;
   }
@@ -521,8 +520,7 @@ class TPP_EXPORT scope {
    * @return reference to self
    */
   template<typename... T>
-  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), scope &> set(
-      T... values) noexcept {
+  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), scope &> set(T... values) noexcept {
     value.reset();
     (value.set(values), ...);
     return *this;
@@ -535,8 +533,7 @@ class TPP_EXPORT scope {
    * @return reference to self
    */
   template<typename... T>
-  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), scope &>
-  remove(T... values) noexcept {
+  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), scope &> remove(T... values) noexcept {
     (value.reset(values), ...);
     return *this;
   }

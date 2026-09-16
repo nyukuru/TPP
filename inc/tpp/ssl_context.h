@@ -38,9 +38,7 @@ struct wrapped_ssl_ctx;
  * @param public_key Public key PEM pathname for server contexts
  * @return wrapped SSL context
  */
-TPP_EXPORT wrapped_ssl_ctx *generate_ssl_context(
-    uint16_t port = 0, const std::string &private_key = "",
-    const std::string &public_key = "");
+TPP_EXPORT wrapped_ssl_ctx *generate_ssl_context(uint16_t port = 0, const std::string &private_key = "", const std::string &public_key = "");
 
 /**
  * @brief Releases an SSL context.

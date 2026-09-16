@@ -8,7 +8,7 @@
 
 namespace tpp {
 
-class session;
+class consumer;
 
 /**
  * @brief Describes an EventSub subscription: its type, version, and
@@ -16,8 +16,8 @@ class session;
  * {{"broadcaster_user_id", id}, {"user_id", id}}}.
  */
 struct TPP_EXPORT event {
-  std::string                        type;
-  std::string                        version {"1"};
+  std::string type;
+  std::string version {"1"};
   std::map<std::string, std::string> condition;
 
   /**
@@ -30,13 +30,13 @@ struct TPP_EXPORT event {
 
 /**
  * @brief Base for event payloads delivered through an event_router_t,
- * e.g. session::on_chat_message.
+ * e.g. conduit::on_chat_message.
  */
 struct TPP_EXPORT event_dispatch_t {
   /**
-   * @brief The session the event arrived on.
+   * @brief The consumer the event arrived for.
    */
-  session *from {nullptr};
+  consumer *from {nullptr};
 
   /**
    * @brief Raw JSON text of the event.
@@ -57,12 +57,11 @@ class TPP_EXPORT event_handler {
  public:
   /**
    * @brief Handles one EventSub notification.
-   * @param s session the notification arrived on
+   * @param c consumer the notification was resolved for
    * @param j parsed JSON of the notification's payload.event
    * @param raw raw JSON text of the notification's payload.event
    */
-  virtual void handle(session *s, nlohmann::json &j,
-                      const std::string &raw) const = 0;
+  virtual void handle(consumer *c, nlohmann::json &j, const std::string &raw) const = 0;
 
   virtual ~event_handler() = default;
 };
@@ -70,13 +69,13 @@ class TPP_EXPORT event_handler {
 /**
  * @brief Declares an EventSub notification handler class. Mirrors DPP's
  * own event_decl macro (see dpp/event.h). Not exported - instances are
- * only ever created inside the library, by find_handler()'s registry.
+ * only ever created inside the library, one static instance per type,
+ * by event_map (see src/eventsub_events.cpp).
  */
-#define TPP_EVENT_DECL(x)                               \
-  class x : public event_handler {                      \
-   public:                                              \
-    void handle(session *s, nlohmann::json &j,          \
-                const std::string &raw) const override; \
+#define TPP_EVENT_DECL(x)                                                               \
+  class x : public event_handler {                                                      \
+   public:                                                                              \
+    void handle(consumer *c, nlohmann::json &j, const std::string &raw) const override; \
   };
 
 TPP_EVENT_DECL(automod_message_hold)
@@ -160,13 +159,16 @@ TPP_EVENT_DECL(user_whisper_message)
 #undef TPP_EVENT_DECL
 
 /**
- * @brief Looks up the handler registered for a subscription type.
+ * @brief Looks up and invokes the handler registered for a notification's
+ * subscription type, mirroring DPP's discord_client::handle_event. Logs
+ * at ll_debug and does nothing else if subscription_type has no
+ * registered handler.
+ * @param c consumer the notification was resolved for
  * @param subscription_type e.g. "channel.chat.message"
- * @return the handler, or nullptr if the subscription type has no handler
+ * @param j parsed JSON of the notification's payload.event
+ * @param raw raw JSON text of the notification's payload.event
  */
-TPP_EXPORT const event_handler *find_handler(
-    const std::string &subscription_type);
+TPP_EXPORT void handle_event(consumer *c, const std::string &subscription_type, nlohmann::json &j, const std::string &raw);
 
 }// namespace events
-
 }// namespace tpp

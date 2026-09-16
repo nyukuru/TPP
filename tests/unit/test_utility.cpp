@@ -51,8 +51,7 @@ TEST(Utility, UrlEncodeLeavesUnreservedCharactersAlone) {
 
 TEST(Utility, UrlEncodeEscapesReservedCharacters) {
   EXPECT_EQ(url_encode("chat:read chat:edit"), "chat%3Aread%20chat%3Aedit");
-  EXPECT_EQ(url_encode("http://localhost:3000"),
-            "http%3A%2F%2Flocalhost%3A3000");
+  EXPECT_EQ(url_encode("http://localhost:3000"), "http%3A%2F%2Flocalhost%3A3000");
 }
 
 TEST(Utility, UrlDecodeReversesUrlEncode) {

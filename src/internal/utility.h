@@ -7,8 +7,7 @@
 #include <vector>
 
 namespace tpp::utility {
-std::vector<std::string> tokenize(std::string const &in,
-                                  const char        *sep = "\r\n");
+std::vector<std::string> tokenize(std::string const &in, const char *sep = "\r\n");
 
 /**
  * @brief Convert a numeric value to hex
@@ -22,8 +21,8 @@ std::vector<std::string> tokenize(std::string const &in,
  */
 template<typename T>
 std::string to_hex(T i, bool leading_zeroes = true) {
-  char   str[26] = {0};
-  size_t size    = sizeof(T) * 2;
+  char str[26] = {0};
+  size_t size = sizeof(T) * 2;
   std::to_chars(std::begin(str), std::end(str), i, 16);
   std::string out {str};
   if (leading_zeroes && out.length() < size) {

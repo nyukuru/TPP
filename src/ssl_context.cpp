@@ -29,26 +29,21 @@
 #include <shared_mutex>
 #include <vector>
 
-namespace tpp::detail {
+namespace tpp {
 
-static std::vector<std::pair<uint16_t, std::unique_ptr<wrapped_ssl_ctx>>>
-    contexts;
+static std::vector<std::pair<uint16_t, std::unique_ptr<detail::wrapped_ssl_ctx>>> contexts;
 
 static std::shared_mutex context_mutex;
 
-void release_ssl_context(uint16_t port) {
+void detail::release_ssl_context(uint16_t port) {
   std::unique_lock lock(context_mutex);
-  auto             it =
-      std::remove_if(contexts.begin(), contexts.end(),
-                     [port](const auto &entry) { return entry.first == port; });
+  auto it = std::remove_if(contexts.begin(), contexts.end(), [port](const auto &entry) { return entry.first == port; });
   if (it != contexts.end()) {
     contexts.erase(it, contexts.end());
   }
 }
 
-wrapped_ssl_ctx *generate_ssl_context(uint16_t           port,
-                                      const std::string &private_key,
-                                      const std::string &public_key) {
+detail::wrapped_ssl_ctx *detail::generate_ssl_context(uint16_t port, const std::string &private_key, const std::string &public_key) {
   {
     std::shared_lock lock(context_mutex);
     for (const auto &[p, ctx] : contexts) {
@@ -58,16 +53,13 @@ wrapped_ssl_ctx *generate_ssl_context(uint16_t           port,
     }
   }
 
-  std::unique_ptr<wrapped_ssl_ctx> context =
-      std::make_unique<wrapped_ssl_ctx>(port != 0);
+  std::unique_ptr<detail::wrapped_ssl_ctx> context = std::make_unique<detail::wrapped_ssl_ctx>(port != 0);
 
   if (port != 0) {
-    if (SSL_CTX_use_certificate_file(context->context, public_key.c_str(),
-                                     SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_certificate_file(context->context, public_key.c_str(), SSL_FILETYPE_PEM) <= 0) {
       throw "Failed to set public key certificate";
     }
-    if (SSL_CTX_use_PrivateKey_file(context->context, private_key.c_str(),
-                                    SSL_FILETYPE_PEM) <= 0) {
+    if (SSL_CTX_use_PrivateKey_file(context->context, private_key.c_str(), SSL_FILETYPE_PEM) <= 0) {
       throw "Failed to set private key certificate";
     }
   }
@@ -81,4 +73,4 @@ wrapped_ssl_ctx *generate_ssl_context(uint16_t           port,
   return contexts.back().second.get();
 }
 
-}// namespace tpp::detail
+}// namespace tpp

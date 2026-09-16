@@ -171,9 +171,7 @@ struct TPP_EXPORT raii_socket {
   ~raii_socket();
 };
 
-extern template TPP_EXPORT bool raii_socket::set_option<int>(int level,
-                                                             int name,
-                                                             int value);
+extern template TPP_EXPORT bool raii_socket::set_option<int>(int level, int name, int value);
 
 }// namespace tpp
 

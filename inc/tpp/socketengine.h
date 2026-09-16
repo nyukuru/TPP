@@ -33,7 +33,7 @@
 
 namespace tpp {
 
-class application;
+class conduit;
 
 /**
  * @brief Types of IO events a socket may subscribe to.
@@ -61,32 +61,29 @@ enum socket_event_flags : uint8_t {
 /**
  * @brief Read ready event
  */
-using socket_read_event =
-    std::function<void(tpp::socket fd, const struct socket_events &)>;
+using socket_read_event = std::function<void(tpp::socket fd, const struct socket_events &)>;
 
 /**
  * @brief Write ready event
  */
-using socket_write_event =
-    std::function<void(tpp::socket fd, const struct socket_events &)>;
+using socket_write_event = std::function<void(tpp::socket fd, const struct socket_events &)>;
 
 /**
  * @brief Error event
  */
-using socket_error_event = std::function<void(
-    tpp::socket fd, const struct socket_events &, int error_code)>;
+using socket_error_event = std::function<void(tpp::socket fd, const struct socket_events &, int error_code)>;
 
 /**
  * @brief Contains statistics about the IO loop
  */
 struct TPP_EXPORT socket_stats {
-  uint64_t         reads {0};
-  uint64_t         writes {0};
-  uint64_t         errors {0};
-  uint64_t         updates {0};
-  uint64_t         deletions {0};
-  uint64_t         iterations {0};
-  uint64_t         active_fds {0};
+  uint64_t reads {0};
+  uint64_t writes {0};
+  uint64_t errors {0};
+  uint64_t updates {0};
+  uint64_t deletions {0};
+  uint64_t iterations {0};
+  uint64_t active_fds {0};
   std::string_view engine_type;
 };
 
@@ -123,15 +120,9 @@ struct TPP_EXPORT socket_events {
    */
   socket_error_event on_error {};
 
-  socket_events(tpp::socket socket_fd, uint8_t _flags,
-                const socket_read_event  &read_event,
-                const socket_write_event &write_event = {},
+  socket_events(tpp::socket socket_fd, uint8_t _flags, const socket_read_event &read_event, const socket_write_event &write_event = {},
                 const socket_error_event &error_event = {})
-      : fd(socket_fd)
-      , flags(_flags)
-      , on_read(read_event)
-      , on_write(write_event)
-      , on_error(error_event) {
+      : fd(socket_fd), flags(_flags), on_read(read_event), on_write(write_event), on_error(error_event) {
   }
 
   socket_events() = default;
@@ -140,8 +131,7 @@ struct TPP_EXPORT socket_events {
 /**
  * @brief Container of event sets keyed by socket file descriptor
  */
-using socket_container =
-    std::unordered_map<tpp::socket, std::unique_ptr<socket_events>>;
+using socket_container = std::unordered_map<tpp::socket, std::unique_ptr<socket_events>>;
 
 /**
  * @brief Base class for socket engines. The implementation drives IO via
@@ -149,16 +139,16 @@ using socket_container =
  */
 struct TPP_EXPORT socket_engine_base {
   /**
-   * @brief Owning application
+   * @brief Owning conduit
    */
-  class application *owner {nullptr};
+  class conduit *owner {nullptr};
 
-  explicit socket_engine_base(class application *creator);
+  explicit socket_engine_base(class conduit *creator);
 
-  socket_engine_base(const socket_engine_base &)            = delete;
-  socket_engine_base(socket_engine_base &&)                 = delete;
+  socket_engine_base(const socket_engine_base &) = delete;
+  socket_engine_base(socket_engine_base &&) = delete;
   socket_engine_base &operator=(const socket_engine_base &) = delete;
-  socket_engine_base &operator=(socket_engine_base &&)      = delete;
+  socket_engine_base &operator=(socket_engine_base &&) = delete;
 
   virtual ~socket_engine_base();
 
@@ -242,10 +232,9 @@ struct TPP_EXPORT socket_engine_base {
 
 /**
  * @brief Creates the socket engine implementation.
- * @param creator Creating application
+ * @param creator Creating conduit
  */
-TPP_EXPORT std::unique_ptr<socket_engine_base> create_socket_engine(
-    class application *creator);
+TPP_EXPORT std::unique_ptr<socket_engine_base> create_socket_engine(class conduit *creator);
 
 /**
  * @brief Fired when a socket managed by the socket engine is closed.

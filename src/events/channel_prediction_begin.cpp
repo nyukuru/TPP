@@ -2,8 +2,7 @@
 
 namespace tpp::events {
 
-void channel_prediction_begin::handle(session *, nlohmann::json &,
-                                      const std::string &) const {
+void channel_prediction_begin::handle(consumer *, nlohmann::json &, const std::string &) const {
 }
 
 }// namespace tpp::events

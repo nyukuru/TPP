@@ -31,17 +31,13 @@ namespace tpp {
 
 namespace {
 constexpr std::array<const char *, 9> verbs {
-    "GET",  "POST",    "PUT",     "PATCH", "DELETE",
-    "HEAD", "CONNECT", "OPTIONS", "TRACE",
+    "GET", "POST", "PUT", "PATCH", "DELETE", "HEAD", "CONNECT", "OPTIONS", "TRACE",
 };
 }
 
-http_server_request::http_server_request(
-    application *creator, socket fd, uint16_t port, bool plaintext_downgrade,
-    const std::string &private_key, const std::string &public_key,
-    http_server_request_event handle_request)
-    : ssl_connection(creator, fd, port, plaintext_downgrade, private_key,
-                     public_key)
+http_server_request::http_server_request(conduit *creator, socket fd, uint16_t port, bool plaintext_downgrade, const std::string &private_key,
+                                         const std::string &public_key, http_server_request_event handle_request)
+    : ssl_connection(creator, fd, port, plaintext_downgrade, private_key, public_key)
     , timeout(time(nullptr) + 10)
     , handler(handle_request)
     , state(HTTPS_HEADERS)
@@ -54,8 +50,7 @@ void http_server_request::connect() {
   read_loop();
 }
 
-const std::string http_server_request::get_header(
-    const std::string &header_name) const {
+const std::string http_server_request::get_header(const std::string &header_name) const {
   auto hdrs = request_headers.find(utility::lowercase(header_name));
   if (hdrs != request_headers.end()) {
     return hdrs->second;
@@ -63,13 +58,11 @@ const std::string http_server_request::get_header(
   return {};
 }
 
-size_t http_server_request::get_header_count(
-    const std::string &header_name) const {
+size_t http_server_request::get_header_count(const std::string &header_name) const {
   return request_headers.count(utility::lowercase(header_name));
 }
 
-std::list<std::string> http_server_request::get_header_list(
-    const std::string &header_name) const {
+std::list<std::string> http_server_request::get_header_list(const std::string &header_name) const {
   auto hdrs = request_headers.equal_range(utility::lowercase(header_name));
   std::list<std::string> data;
   for (auto i = hdrs.first; i != hdrs.second; ++i) {
@@ -90,9 +83,8 @@ uint64_t http_server_request::get_max_header_size() const {
   return 8192;
 }
 
-void http_server_request::generate_error(uint16_t           error_code,
-                                         const std::string &message) {
-  status        = error_code;
+void http_server_request::generate_error(uint16_t error_code, const std::string &message) {
+  status = error_code;
   response_body = message;
   if (handler) {
     handler(this);
@@ -123,15 +115,14 @@ bool http_server_request::handle_buffer(std::string &buffer) {
             return true;
           }
 
-          std::vector<std::string> verb_path_protocol =
-              utility::tokenize(h[0], " ");
+          std::vector<std::string> verb_path_protocol = utility::tokenize(h[0], " ");
           if (verb_path_protocol.size() < 3) {
             generate_error(400, "Malformed request");
             return true;
           }
           std::string req_verb = utility::uppercase(verb_path_protocol[0]);
-          request_type         = req_verb;
-          path                 = verb_path_protocol[1];
+          request_type = req_verb;
+          path = verb_path_protocol[1];
           std::string protocol = utility::uppercase(verb_path_protocol[2]);
 
           h.erase(h.begin());
@@ -149,7 +140,7 @@ bool http_server_request::handle_buffer(std::string &buffer) {
           for (auto &hd : h) {
             auto sep = hd.find(": ");
             if (sep != std::string::npos) {
-              std::string key   = hd.substr(0, sep);
+              std::string key = hd.substr(0, sep);
               std::string value = hd.substr(sep + 2, hd.length());
               request_headers.emplace(utility::lowercase(key), value);
             }
@@ -163,7 +154,7 @@ bool http_server_request::handle_buffer(std::string &buffer) {
           } else {
             content_length = 0;
           }
-          state         = HTTPS_CONTENT;
+          state = HTTPS_CONTENT;
           state_changed = true;
           continue;
         }
@@ -171,9 +162,8 @@ bool http_server_request::handle_buffer(std::string &buffer) {
       case HTTPS_CONTENT:
         request_body += buffer;
         buffer.clear();
-        if (request_body.length() > get_max_post_size() ||
-            request_body.length() >= content_length) {
-          state         = HTTPS_DONE;
+        if (request_body.length() > get_max_post_size() || request_body.length() >= content_length) {
+          state = HTTPS_DONE;
           state_changed = true;
         }
         break;
@@ -202,8 +192,7 @@ http_server_request &http_server_request::set_status(uint16_t new_status) {
   return *this;
 }
 
-http_server_request &http_server_request::set_response_body(
-    const std::string &new_content) {
+http_server_request &http_server_request::set_response_body(const std::string &new_content) {
   response_body = new_content;
   return *this;
 }
@@ -216,8 +205,7 @@ std::string http_server_request::get_request_body() const {
   return request_body;
 }
 
-http_server_request &http_server_request::set_response_header(
-    const std::string &header, const std::string &value) {
+http_server_request &http_server_request::set_response_header(const std::string &header, const std::string &value) {
   response_headers.emplace(header, value);
   return *this;
 }
@@ -238,16 +226,14 @@ void http_server_request::one_second_timer() {
   if (!tcp_connect_done && time(nullptr) >= timeout) {
     timed_out = true;
     this->close();
-  } else if (tcp_connect_done && time(nullptr) >= timeout &&
-             state != HTTPS_DONE) {
+  } else if (tcp_connect_done && time(nullptr) >= timeout && state != HTTPS_DONE) {
     timed_out = true;
     this->close();
   }
 }
 
 std::string http_server_request::get_response() {
-  std::string response =
-      "HTTP/1.1 " + std::to_string(status) + " OK\r\nConnection: close\r\n";
+  std::string response = "HTTP/1.1 " + std::to_string(status) + " OK\r\nConnection: close\r\n";
   set_response_header("Content-Length", std::to_string(response_body.length()));
   for (const auto &header : response_headers) {
     response += header.first + ": " + header.second + "\r\n";

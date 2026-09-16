@@ -82,8 +82,7 @@ struct TPP_EXPORT dns_cache_entry {
 /**
  * @brief Cache container type
  */
-using dns_cache_t =
-    std::unordered_map<std::string, std::unique_ptr<dns_cache_entry>>;
+using dns_cache_t = std::unordered_map<std::string, std::unique_ptr<dns_cache_entry>>;
 
 /**
  * @brief Resolve a hostname to an addrinfo
@@ -94,6 +93,5 @@ using dns_cache_t =
  * record
  * @throw tpp::connection_exception On failure to resolve hostname
  */
-TPP_EXPORT const dns_cache_entry *resolve_hostname(const std::string &hostname,
-                                                   const std::string &port);
+TPP_EXPORT const dns_cache_entry *resolve_hostname(const std::string &hostname, const std::string &port);
 }// namespace tpp

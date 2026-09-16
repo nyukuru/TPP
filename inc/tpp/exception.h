@@ -31,18 +31,18 @@ namespace tpp {
  * @brief Exception error codes possible for tpp::exception::code().
  */
 enum exception_error_code {
-  err_no_code_specified   = 0,
-  err_ssl_new             = 1,
-  err_ssl_connect         = 2,
-  err_write               = 3,
-  err_ssl_write           = 4,
-  err_bind_failure        = 8,
+  err_no_code_specified = 0,
+  err_ssl_new = 1,
+  err_ssl_connect = 2,
+  err_write = 3,
+  err_ssl_write = 4,
+  err_bind_failure = 8,
   err_nonblocking_failure = 9,
-  err_connect_failure     = 11,
-  err_ssl_context         = 12,
-  err_ssl_version         = 13,
-  err_invalid_socket      = 14,
-  err_socket_error        = 15,
+  err_connect_failure = 11,
+  err_ssl_context = 12,
+  err_ssl_version = 13,
+  err_invalid_socket = 14,
+  err_socket_error = 15,
 };
 
 /**
@@ -67,21 +67,19 @@ class TPP_EXPORT exception : public std::exception {
   explicit exception(const char *what) : msg(what) {
   }
 
-  exception(exception_error_code code, const char *what)
-      : msg(what), error_code(code) {
+  exception(exception_error_code code, const char *what) : msg(what), error_code(code) {
   }
 
   explicit exception(const std::string &what) : msg(what) {
   }
 
-  exception(exception_error_code code, const std::string &what)
-      : msg(what), error_code(code) {
+  exception(exception_error_code code, const std::string &what) : msg(what), error_code(code) {
   }
 
-  exception(const exception &)                = default;
-  exception(exception &&) noexcept            = default;
-  ~exception() override                       = default;
-  exception &operator=(const exception &)     = default;
+  exception(const exception &) = default;
+  exception(exception &&) noexcept = default;
+  ~exception() override = default;
+  exception &operator=(const exception &) = default;
   exception &operator=(exception &&) noexcept = default;
 
   /**

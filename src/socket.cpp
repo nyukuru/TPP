@@ -28,8 +28,8 @@ namespace tpp {
 
 address_t::address_t(const std::string_view ip, uint16_t port) {
   sockaddr_in address {};
-  address.sin_family      = AF_INET;
-  address.sin_port        = htons(port);
+  address.sin_family = AF_INET;
+  address.sin_port = htons(port);
   address.sin_addr.s_addr = inet_addr(ip.data());
   std::memcpy(&socket_addr, &address, sizeof(address));
 }
@@ -52,8 +52,7 @@ uint16_t address_t::get_port(socket fd) {
   return 0;
 }
 
-raii_socket::raii_socket(raii_socket_type type)
-    : fd(::socket(AF_INET, type == rst_udp ? SOCK_DGRAM : SOCK_STREAM, 0)) {
+raii_socket::raii_socket(raii_socket_type type) : fd(::socket(AF_INET, type == rst_udp ? SOCK_DGRAM : SOCK_STREAM, 0)) {
 }
 
 raii_socket::raii_socket(socket plain_fd) {
@@ -65,14 +64,12 @@ raii_socket::~raii_socket() {
 }
 
 bool raii_socket::bind(address_t address) {
-  return ::bind(fd, address.get_socket_address(),
-                static_cast<socklen_t>(address.size())) >= 0;
+  return ::bind(fd, address.get_socket_address(), static_cast<socklen_t>(address.size())) >= 0;
 }
 
 template<typename T>
 bool raii_socket::set_option(int level, int name, T value) {
-  return ::setsockopt(fd, level, name, reinterpret_cast<char *>(&value),
-                      sizeof(value)) == 0;
+  return ::setsockopt(fd, level, name, reinterpret_cast<char *>(&value), sizeof(value)) == 0;
 }
 
 template bool raii_socket::set_option<int>(int, int, int);
@@ -83,7 +80,7 @@ bool raii_socket::listen() {
 
 socket raii_socket::accept() {
   sockaddr_in addr {};
-  socklen_t   addr_len {sizeof(sockaddr_in)};
+  socklen_t addr_len {sizeof(sockaddr_in)};
   return ::accept(fd, reinterpret_cast<sockaddr *>(&addr), &addr_len);
 }
 

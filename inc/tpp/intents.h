@@ -9,7 +9,7 @@
 namespace tpp {
 
 /**
- * @brief EventSub subscription categories a session can set up once its
+ * @brief EventSub subscription categories a consumer can set up once its
  * owning user has authenticated.
  */
 enum intents : std::size_t {
@@ -87,8 +87,7 @@ class TPP_EXPORT intent {
    * @return reference to self
    */
   template<typename... T>
-  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), intent &>
-  add(T... values) noexcept {
+  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), intent &> add(T... values) noexcept {
     (value.set(values), ...);
     return *this;
   }
@@ -100,8 +99,7 @@ class TPP_EXPORT intent {
    * @return reference to self
    */
   template<typename... T>
-  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), intent &>
-  set(T... values) noexcept {
+  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), intent &> set(T... values) noexcept {
     value.reset();
     (value.set(values), ...);
     return *this;
@@ -114,8 +112,7 @@ class TPP_EXPORT intent {
    * @return reference to self
    */
   template<typename... T>
-  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), intent &>
-  remove(T... values) noexcept {
+  std::enable_if_t<(std::is_convertible_v<T, std::size_t> && ...), intent &> remove(T... values) noexcept {
     (value.reset(values), ...);
     return *this;
   }
@@ -124,8 +121,7 @@ class TPP_EXPORT intent {
    * @brief Union of two intent sets.
    * @return an intent set containing every intent in lhs or rhs
    */
-  friend inline intent operator|(const intent &lhs,
-                                 const intent &rhs) noexcept {
+  friend inline intent operator|(const intent &lhs, const intent &rhs) noexcept {
     intent result;
     result.value = lhs.value | rhs.value;
     return result;
@@ -145,8 +141,7 @@ class TPP_EXPORT intent {
    * @return an intent set containing only the intents present in both lhs
    * and rhs
    */
-  friend inline intent operator&(const intent &lhs,
-                                 const intent &rhs) noexcept {
+  friend inline intent operator&(const intent &lhs, const intent &rhs) noexcept {
     intent result;
     result.value = lhs.value & rhs.value;
     return result;

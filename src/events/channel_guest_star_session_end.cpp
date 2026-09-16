@@ -2,8 +2,7 @@
 
 namespace tpp::events {
 
-void channel_guest_star_session_end::handle(session *, nlohmann::json &,
-                                            const std::string &) const {
+void channel_guest_star_session_end::handle(consumer *, nlohmann::json &, const std::string &) const {
 }
 
 }// namespace tpp::events

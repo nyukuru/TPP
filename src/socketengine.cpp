@@ -19,7 +19,7 @@
  * limitations under the License.
  *
  ************************************************************************************/
-#include <tpp/application.h>
+#include <tpp/conduit.h>
 #include <tpp/exception.h>
 #include <tpp/socketengine.h>
 
@@ -44,7 +44,7 @@ void set_signal_handler(int signal) {
 
 bool socket_engine_base::register_socket(const socket_events &e) {
   std::unique_lock lock(fds_mutex);
-  auto             i = fds.find(e.fd);
+  auto i = fds.find(e.fd);
   if (e.fd != INVALID_SOCKET && i == fds.end()) {
     fds.emplace(e.fd, std::make_unique<socket_events>(e));
     stats.active_fds++;
@@ -62,7 +62,7 @@ bool socket_engine_base::register_socket(const socket_events &e) {
 
 bool socket_engine_base::update_socket(const socket_events &e) {
   std::unique_lock lock(fds_mutex);
-  auto             iter = fds.find(e.fd);
+  auto iter = fds.find(e.fd);
   if (e.fd != INVALID_SOCKET && iter != fds.end()) {
     *(iter->second) = e;
     stats.updates++;
@@ -71,7 +71,7 @@ bool socket_engine_base::update_socket(const socket_events &e) {
   return false;
 }
 
-socket_engine_base::socket_engine_base(application *creator) : owner(creator) {
+socket_engine_base::socket_engine_base(conduit *creator) : owner(creator) {
 #ifndef _WIN32
   set_signal_handler(SIGCHLD);
   signal(SIGHUP, SIG_IGN);
@@ -96,22 +96,20 @@ time_t last_time = time(nullptr);
 
 socket_events *socket_engine_base::get_fd(tpp::socket fd) {
   std::unique_lock lock(fds_mutex);
-  auto             iter = fds.find(fd);
+  auto iter = fds.find(fd);
   if (iter == fds.end()) {
     return nullptr;
   }
   return iter->second.get();
 }
 
-void socket_engine_base::inplace_modify_fd(tpp::socket fd,
-                                           uint8_t     extra_flags) {
-  bool          should_modify {false};
+void socket_engine_base::inplace_modify_fd(tpp::socket fd, uint8_t extra_flags) {
+  bool should_modify {false};
   socket_events s {};
   {
     std::lock_guard<std::shared_mutex> lock(fds_mutex);
-    auto                               i = fds.find(fd);
-    should_modify =
-        i != fds.end() && (i->second->flags & extra_flags) != extra_flags;
+    auto i = fds.find(fd);
+    should_modify = i != fds.end() && (i->second->flags & extra_flags) != extra_flags;
     if (should_modify) {
       i->second->flags |= extra_flags;
       s = *(i->second);
@@ -127,8 +125,7 @@ void socket_engine_base::prune() {
     try {
       owner->tick_timers();
     } catch (const std::exception &e) {
-      owner->log(tpp::ll_error,
-                 "Uncaught exception in tick_timers: " + std::string(e.what()));
+      owner->log(tpp::ll_error, "Uncaught exception in tick_timers: " + std::string(e.what()));
     }
     last_time = time(nullptr);
   }
@@ -137,7 +134,7 @@ void socket_engine_base::prune() {
 
 bool socket_engine_base::delete_socket(tpp::socket fd) {
   std::unique_lock lock(fds_mutex);
-  auto             iter = fds.find(fd);
+  auto iter = fds.find(fd);
   if (iter == fds.end() || ((iter->second->flags & WANT_DELETION) != 0)) {
     return false;
   }

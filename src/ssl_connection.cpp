@@ -49,7 +49,7 @@
 #  undef OCSP_REQUEST
 #  undef OCSP_RESPONSE
 #endif
-#include <tpp/application.h>
+#include <tpp/conduit.h>
 #include <tpp/dns.h>
 #include <tpp/exception.h>
 #include <tpp/ssl_connection.h>
@@ -89,9 +89,9 @@ class openssl_connection {
  * @brief Keepalive cache record
  */
 struct keepalive_cache_t {
-  time_t              created;
+  time_t created;
   openssl_connection *ssl;
-  tpp::socket         sfd;
+  tpp::socket sfd;
 };
 
 bool close_socket(tpp::socket sfd) {
@@ -109,20 +109,16 @@ bool close_socket(tpp::socket sfd) {
 
 std::string get_socket_error() {
 #ifdef _WIN32
-  wchar_t    *wide_buffer {nullptr};
+  wchar_t *wide_buffer {nullptr};
   std::string message {"Unknown error"};
 
-  FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM |
-                     FORMAT_MESSAGE_IGNORE_INSERTS,
-                 nullptr, WSAGetLastError(), 0,
+  FormatMessageW(FORMAT_MESSAGE_ALLOCATE_BUFFER | FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, nullptr, WSAGetLastError(), 0,
                  reinterpret_cast<LPWSTR>(&wide_buffer), 0, nullptr);
   if (wide_buffer) {
-    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wide_buffer, -1, nullptr,
-                                          0, nullptr, nullptr);
+    int size_needed = WideCharToMultiByte(CP_UTF8, 0, wide_buffer, -1, nullptr, 0, nullptr, nullptr);
     if (size_needed > 0) {
       message.resize(size_needed - 1);
-      WideCharToMultiByte(CP_UTF8, 0, wide_buffer, -1, message.data(),
-                          size_needed, nullptr, nullptr);
+      WideCharToMultiByte(CP_UTF8, 0, wide_buffer, -1, message.data(), size_needed, nullptr, nullptr);
     }
     LocalFree(wide_buffer);
   }
@@ -135,8 +131,8 @@ std::string get_socket_error() {
 bool set_nonblocking(tpp::socket sockfd, bool non_blocking) {
   const int enable {1};
 #ifdef _WIN32
-  u_long mode   = non_blocking ? 1 : 0;
-  int    result = ioctlsocket(sockfd, FIONBIO, &mode);
+  u_long mode = non_blocking ? 1 : 0;
+  int result = ioctlsocket(sockfd, FIONBIO, &mode);
   if (result != NO_ERROR) {
     return false;
   }
@@ -151,17 +147,13 @@ bool set_nonblocking(tpp::socket sockfd, bool non_blocking) {
     return false;
   }
 #endif
-  setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY,
-             reinterpret_cast<const char *>(&enable), sizeof(int));
+  setsockopt(sockfd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<const char *>(&enable), sizeof(int));
   return true;
 }
 
-int ssl_connection::start_connecting(tpp::socket            sockfd,
-                                     const struct sockaddr *addr,
-                                     socklen_t              addrlen) {
+int ssl_connection::start_connecting(tpp::socket sockfd, const struct sockaddr *addr, socklen_t addrlen) {
   if (!set_nonblocking(sockfd, true)) {
-    throw tpp::connection_exception(
-        err_nonblocking_failure, "Can't switch socket to non-blocking mode!");
+    throw tpp::connection_exception(err_nonblocking_failure, "Can't switch socket to non-blocking mode!");
   }
 #ifdef _WIN32
   /* Windows connect returns -1 and sets its error value to 0 for successfull
@@ -169,12 +161,11 @@ int ssl_connection::start_connecting(tpp::socket            sockfd,
    */
   ULONG non_blocking = 1;
   ioctlsocket(sockfd, FIONBIO, &non_blocking);
-  int rc =
-      WSAConnect(sockfd, addr, addrlen, nullptr, nullptr, nullptr, nullptr);
+  int rc = WSAConnect(sockfd, addr, addrlen, nullptr, nullptr, nullptr, nullptr);
   int err = ((rc == SOCKET_ERROR) ? WSAGetLastError() : 0);
 #else
   /* Standard POSIX connection behaviour */
-  int rc  = (::connect(sockfd, addr, addrlen));
+  int rc = (::connect(sockfd, addr, addrlen));
   int err = errno;
 #endif
   if (rc == -1
@@ -186,7 +177,7 @@ int ssl_connection::start_connecting(tpp::socket            sockfd,
   } else if (rc == 0) {
     /* We are ready RIGHT NOW, connection already succeeded */
     socket_events ev;
-    ev.fd    = sockfd;
+    ev.fd = sockfd;
     ev.flags = WANT_READ | WANT_WRITE | WANT_ERROR;
     on_write(sockfd, ev);
   }
@@ -201,10 +192,7 @@ void ssl_connection::enable_raw_tracing() {
   raw_trace = true;
 }
 
-ssl_connection::ssl_connection(application       *creator,
-                               const std::string &_hostname,
-                               const std::string &_port,
-                               bool plaintext_downgrade, bool reuse)
+ssl_connection::ssl_connection(conduit *creator, const std::string &_hostname, const std::string &_port, bool plaintext_downgrade, bool reuse)
     : is_server(false)
     , sfd(INVALID_SOCKET)
     , ssl(nullptr)
@@ -222,9 +210,9 @@ ssl_connection::ssl_connection(application       *creator,
   if (plaintext) {
     ssl = nullptr;
   } else {
-    ssl                              = new openssl_connection();
+    ssl = new openssl_connection();
     detail::wrapped_ssl_ctx *context = detail::generate_ssl_context();
-    ssl->ctx                         = context->context;
+    ssl->ctx = context->context;
   }
   try {
     ssl_connection::connect();
@@ -234,9 +222,7 @@ ssl_connection::ssl_connection(application       *creator,
   }
 }
 
-ssl_connection::ssl_connection(application *creator, socket fd, uint16_t port,
-                               bool               plaintext_downgrade,
-                               const std::string &private_key,
+ssl_connection::ssl_connection(conduit *creator, socket fd, uint16_t port, bool plaintext_downgrade, const std::string &private_key,
                                const std::string &public_key)
     : is_server(true)
     , sfd(fd)
@@ -256,14 +242,12 @@ ssl_connection::ssl_connection(application *creator, socket fd, uint16_t port,
     ssl = nullptr;
   } else {
     ssl = new openssl_connection();
-    detail::wrapped_ssl_ctx *context =
-        detail::generate_ssl_context(port, private_key, public_key);
+    detail::wrapped_ssl_ctx *context = detail::generate_ssl_context(port, private_key, public_key);
     ssl->ctx = context->context;
   }
 
   if (!set_nonblocking(sfd, true)) {
-    throw tpp::connection_exception(
-        err_nonblocking_failure, "Can't switch socket to non-blocking mode!");
+    throw tpp::connection_exception(err_nonblocking_failure, "Can't switch socket to non-blocking mode!");
   }
 }
 
@@ -275,9 +259,8 @@ void ssl_connection::on_buffer_drained() {
 void ssl_connection::connect() {
   /* Resolve hostname to IP */
   const dns_cache_entry *addr = resolve_hostname(hostname, port);
-  sfd                         = addr->make_connecting_socket();
-  address_t destination       = addr->get_connecting_address(
-      static_cast<uint16_t>(std::stoi(this->port)));
+  sfd = addr->make_connecting_socket();
+  address_t destination = addr->get_connecting_address(static_cast<uint16_t>(std::stoi(this->port)));
   /* Check if valid connection started */
   if (sfd == ERROR_STATUS) {
     throw tpp::connection_exception(err_connect_failure, get_socket_error());
@@ -332,10 +315,7 @@ void ssl_connection::complete_handshake(const socket_events *ev) {
         break;
       }
       default: {
-        throw tpp::connection_exception(
-            err_ssl_connect,
-            "SSL_do_handshake error: " + std::to_string(status) + ";" +
-                std::to_string(code));
+        throw tpp::connection_exception(err_ssl_connect, "SSL_do_handshake error: " + std::to_string(status) + ";" + std::to_string(code));
       }
     }
   } else {
@@ -343,7 +323,7 @@ void ssl_connection::complete_handshake(const socket_events *ev) {
     socket_events se {*ev};
     se.flags = tpp::WANT_WRITE | tpp::WANT_READ | tpp::WANT_ERROR;
     owner->socketengine->update_socket(se);
-    connected    = true;
+    connected = true;
     this->cipher = SSL_get_cipher(ssl->ssl);
   }
 }
@@ -432,8 +412,7 @@ void ssl_connection::on_read(socket fd, const struct socket_events &ev) {
 
   {
     std::lock_guard<std::mutex> lock(out_mutex);
-    if (connected && ssl && ssl->ssl &&
-        (!obuffer.empty() || SSL_want_write(ssl->ssl))) {
+    if (connected && ssl && ssl->ssl && (!obuffer.empty() || SSL_want_write(ssl->ssl))) {
       socket_events se {ev};
       se.flags = WANT_READ | WANT_WRITE | WANT_ERROR;
       owner->socketengine->update_socket(se);
@@ -496,10 +475,8 @@ void ssl_connection::on_write(socket fd, const struct socket_events &e) {
       std::lock_guard<std::mutex> lock(out_mutex);
       if (!obuffer.empty() && client_to_server_length == 0) {
         /* If we do, copy it to the raw buffer OpenSSL uses */
-        memcpy(&client_to_server_buffer, obuffer.data(),
-               obuffer.length() > DPP_BUFSIZE ? DPP_BUFSIZE : obuffer.length());
-        client_to_server_length =
-            obuffer.length() > DPP_BUFSIZE ? DPP_BUFSIZE : obuffer.length();
+        memcpy(&client_to_server_buffer, obuffer.data(), obuffer.length() > DPP_BUFSIZE ? DPP_BUFSIZE : obuffer.length());
+        client_to_server_length = obuffer.length() > DPP_BUFSIZE ? DPP_BUFSIZE : obuffer.length();
         obuffer = obuffer.substr(client_to_server_length, obuffer.length());
         client_to_server_offset = 0;
       }
@@ -509,12 +486,8 @@ void ssl_connection::on_write(socket fd, const struct socket_events &e) {
       /* For plaintext connections life is simple, we just call ::send() to send
        * as much of the buffer as we can */
       if (client_to_server_length > 0) {
-        int r = static_cast<int>(
-            ::send(sfd, client_to_server_buffer + client_to_server_offset,
-                   static_cast<int>(client_to_server_length), 0));
-        do_raw_trace("(OUT,PLAIN): " + std::string(client_to_server_buffer +
-                                                       client_to_server_offset,
-                                                   client_to_server_length));
+        int r = static_cast<int>(::send(sfd, client_to_server_buffer + client_to_server_offset, static_cast<int>(client_to_server_length), 0));
+        do_raw_trace("(OUT,PLAIN): " + std::string(client_to_server_buffer + client_to_server_offset, client_to_server_length));
         if (r < 0) {
           /* Write error */
           do_raw_trace("(OUT,PLAIN): <error>");
@@ -548,12 +521,8 @@ void ssl_connection::on_write(socket fd, const struct socket_events &e) {
       int err {SSL_ERROR_NONE};
       int r {0};
       if (client_to_server_length > 0) {
-        r = SSL_write(ssl->ssl,
-                      client_to_server_buffer + client_to_server_offset,
-                      static_cast<int>(client_to_server_length));
-        do_raw_trace("(OUT,SSL): " + std::string(client_to_server_buffer +
-                                                     client_to_server_offset,
-                                                 client_to_server_length));
+        r = SSL_write(ssl->ssl, client_to_server_buffer + client_to_server_offset, static_cast<int>(client_to_server_length));
+        do_raw_trace("(OUT,SSL): " + std::string(client_to_server_buffer + client_to_server_offset, client_to_server_length));
         err = SSL_get_error(ssl->ssl, r);
       } else {
         /* Spurious write event for empty buffer */
@@ -614,8 +583,7 @@ void ssl_connection::on_write(socket fd, const struct socket_events &e) {
   }
 }
 
-void ssl_connection::on_error(socket fd, const struct socket_events &,
-                              int    error_code) {
+void ssl_connection::on_error(socket fd, const struct socket_events &, int error_code) {
   this->close();
 }
 
@@ -650,19 +618,16 @@ void ssl_connection::read_loop() {
     timer_handle = owner->start_timer(
         [this, setup_events](auto handle) {
           one_second_timer();
-          if (!tcp_connect_done && time(nullptr) > start + 2 &&
-              connect_retries < MAX_RETRIES && sfd != INVALID_SOCKET) {
+          if (!tcp_connect_done && time(nullptr) > start + 2 && connect_retries < MAX_RETRIES && sfd != INVALID_SOCKET) {
             /* Retries up to MAX_RETRIES times, 2 seconds apart, then leaves
              * it to the timeout code. */
-            do_raw_trace("(OUT) connect() retry #" +
-                         std::to_string(connect_retries + 1));
+            do_raw_trace("(OUT) connect() retry #" + std::to_string(connect_retries + 1));
             close_socket(sfd);
             owner->socketengine->delete_socket(sfd);
             try {
               ssl_connection::connect();
             } catch (const std::exception &e) {
-              do_raw_trace("(OUT): connect() exception: " +
-                           std::string(e.what()));
+              do_raw_trace("(OUT): connect() exception: " + std::string(e.what()));
             }
             setup_events();
             start = time(nullptr) + 2;
@@ -699,7 +664,7 @@ void ssl_connection::close() {
   }
   connected = tcp_connect_done = false;
   client_to_server_length = client_to_server_offset = 0;
-  last_tick                                         = time(nullptr);
+  last_tick = time(nullptr);
   bytes_in = bytes_out = 0;
   if (sfd != INVALID_SOCKET) {
     log(ll_trace, "ssl_connection::close() with sfd");

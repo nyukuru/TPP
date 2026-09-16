@@ -2,8 +2,7 @@
 
 namespace tpp::events {
 
-void automod_message_hold::handle(session *, nlohmann::json &,
-                                  const std::string &) const {
+void automod_message_hold::handle(consumer *, nlohmann::json &, const std::string &) const {
 }
 
 }// namespace tpp::events

@@ -2,8 +2,7 @@
 
 namespace tpp::events {
 
-void channel_charity_campaign_stop::handle(session *, nlohmann::json &,
-                                           const std::string &) const {
+void channel_charity_campaign_stop::handle(consumer *, nlohmann::json &, const std::string &) const {
 }
 
 }// namespace tpp::events

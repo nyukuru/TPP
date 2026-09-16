@@ -27,28 +27,19 @@
 
 namespace tpp {
 
-constexpr unsigned char WS_MASKBIT                    = (1u << 7u);
-constexpr unsigned char WS_FINBIT                     = (1u << 7u);
+constexpr unsigned char WS_MASKBIT = (1u << 7u);
+constexpr unsigned char WS_FINBIT = (1u << 7u);
 constexpr unsigned char WS_PAYLOAD_LENGTH_MAGIC_LARGE = 126;
-constexpr unsigned char WS_PAYLOAD_LENGTH_MAGIC_HUGE  = 127;
-constexpr size_t        WS_MAX_PAYLOAD_LENGTH_SMALL   = 125;
-constexpr size_t        WS_MAX_PAYLOAD_LENGTH_LARGE   = 65535;
-constexpr size_t        MAXHEADERSIZE                 = sizeof(uint64_t) + 2;
+constexpr unsigned char WS_PAYLOAD_LENGTH_MAGIC_HUGE = 127;
+constexpr size_t WS_MAX_PAYLOAD_LENGTH_SMALL = 125;
+constexpr size_t WS_MAX_PAYLOAD_LENGTH_LARGE = 65535;
+constexpr size_t MAXHEADERSIZE = sizeof(uint64_t) + 2;
 
-websocket_client::websocket_client(application       *creator,
-                                   const std::string &hostname,
-                                   const std::string &port,
-                                   const std::string &urlpath, ws_opcode opcode)
-    : ssl_connection(creator, hostname, port)
-    , state(HTTP_HEADERS)
-    , path(urlpath)
-    , data_opcode(opcode)
-    , timed_out(false)
-    , timeout(time(nullptr) + 5) {
+websocket_client::websocket_client(conduit *creator, const std::string &hostname, const std::string &port, const std::string &urlpath, ws_opcode opcode)
+    : ssl_connection(creator, hostname, port), state(HTTP_HEADERS), path(urlpath), data_opcode(opcode), timed_out(false), timeout(time(nullptr) + 5) {
   uint64_t k = (time(nullptr) * time(nullptr));
-  key        = utility::to_hex<uint64_t>(k);
-  key        = utility::base64_encode(
-      reinterpret_cast<const unsigned char *>(key.c_str()), key.length());
+  key = utility::to_hex<uint64_t>(k);
+  key = utility::base64_encode(reinterpret_cast<const unsigned char *>(key.c_str()), key.length());
 
   /* ssl_connection's own constructor can only call ssl_connection::connect();
    * this override must be invoked explicitly to send the HTTP Upgrade
@@ -77,15 +68,13 @@ void websocket_client::connect() {
   read_loop();
 }
 
-bool websocket_client::handle_frame(const std::string &buffer,
-                                    ws_opcode          opcode) {
+bool websocket_client::handle_frame(const std::string &buffer, ws_opcode opcode) {
   /* This is a stub for classes that derive the websocket client */
   return true;
 }
 
-size_t websocket_client::fill_header(unsigned char *outbuf, size_t sendlength,
-                                     ws_opcode opcode) {
-  size_t pos    = 0;
+size_t websocket_client::fill_header(unsigned char *outbuf, size_t sendlength, ws_opcode opcode) {
+  size_t pos = 0;
   outbuf[pos++] = WS_FINBIT | opcode;
 
   if (sendlength <= WS_MAX_PAYLOAD_LENGTH_SMALL) {
@@ -95,7 +84,7 @@ size_t websocket_client::fill_header(unsigned char *outbuf, size_t sendlength,
     outbuf[pos++] = (sendlength >> 8) & 0xff;
     outbuf[pos++] = sendlength & 0xff;
   } else {
-    outbuf[pos++]      = WS_PAYLOAD_LENGTH_MAGIC_HUGE;
+    outbuf[pos++] = WS_PAYLOAD_LENGTH_MAGIC_HUGE;
     const uint64_t len = sendlength;
     for (int i = sizeof(uint64_t) - 1; i >= 0; i--) {
       outbuf[pos++] = ((len >> i * 8) & 0xff);
@@ -116,16 +105,14 @@ void websocket_client::write(const std::string_view data, ws_opcode _opcode) {
   if ((_opcode == OP_AUTO ? this->data_opcode : _opcode) == OP_TEXT) {
     log(tpp::ll_trace, std::string("W: ") + data.data());
   } else {
-    log(tpp::ll_trace,
-        "W: <binary frame> size=" + std::to_string(data.length()));
+    log(tpp::ll_trace, "W: <binary frame> size=" + std::to_string(data.length()));
   }
   if (state == HTTP_HEADERS) {
     /* Simple write */
     ssl_connection::socket_write(data);
   } else {
     unsigned char out[MAXHEADERSIZE];
-    size_t        s = this->fill_header(
-        out, data.length(), _opcode == OP_AUTO ? this->data_opcode : _opcode);
+    size_t s = this->fill_header(out, data.length(), _opcode == OP_AUTO ? this->data_opcode : _opcode);
     std::string header((const char *) out, s);
     ssl_connection::socket_write(header);
     ssl_connection::socket_write(data);
@@ -153,7 +140,7 @@ bool websocket_client::handle_buffer(std::string &buffer) {
       for (auto &hd : h) {
         std::string::size_type sep = hd.find(": ");
         if (sep != std::string::npos) {
-          std::string key   = hd.substr(0, sep);
+          std::string key = hd.substr(0, sep);
           std::string value = hd.substr(sep + 2, hd.length());
           http_headers[key] = value;
         }
@@ -196,8 +183,8 @@ bool websocket_client::parseheader(std::string &data) {
     case OP_BINARY:
     case OP_PING:
     case OP_PONG: {
-      unsigned char len1               = data[1];
-      unsigned int  payloadstartoffset = 2;
+      unsigned char len1 = data[1];
+      unsigned int payloadstartoffset = 2;
 
       if (len1 & WS_MASKBIT) {
         len1 &= ~WS_MASKBIT;
@@ -218,7 +205,7 @@ bool websocket_client::parseheader(std::string &data) {
 
         unsigned char len2 = (unsigned char) data[2];
         unsigned char len3 = (unsigned char) data[3];
-        len                = (len2 << 8) | len3;
+        len = (len2 << 8) | len3;
 
         payloadstartoffset += 2;
       } else if (len1 == WS_PAYLOAD_LENGTH_MAGIC_HUGE) {
@@ -243,8 +230,7 @@ bool websocket_client::parseheader(std::string &data) {
       if ((opcode & ~WS_FINBIT) == OP_PING) {
         handle_ping(data.substr(payloadstartoffset, len));
       } else if ((opcode & ~WS_FINBIT) != OP_PONG) {
-        if (!this->handle_frame(data.substr(payloadstartoffset, len),
-                                static_cast<ws_opcode>(opcode & ~WS_FINBIT))) {
+        if (!this->handle_frame(data.substr(payloadstartoffset, len), static_cast<ws_opcode>(opcode & ~WS_FINBIT))) {
           return false;
         }
       }
@@ -276,9 +262,9 @@ void websocket_client::one_second_timer() {
 
   if (((now % 20) == 0) && (state == CONNECTED)) {
     unsigned char out[MAXHEADERSIZE];
-    std::string   payload = "keepalive";
-    size_t        s       = this->fill_header(out, payload.length(), OP_PING);
-    std::string   header((const char *) out, s);
+    std::string payload = "keepalive";
+    size_t s = this->fill_header(out, payload.length(), OP_PING);
+    std::string header((const char *) out, s);
     ssl_connection::socket_write(header);
     ssl_connection::socket_write(payload);
   }
@@ -288,8 +274,7 @@ void websocket_client::one_second_timer() {
       log(ll_trace, "Websocket connection timed out: connect()");
       timed_out = true;
       this->close();
-    } else if (tcp_connect_done && !connected && now >= timeout &&
-               this->state != CONNECTED) {
+    } else if (tcp_connect_done && !connected && now >= timeout && this->state != CONNECTED) {
       log(ll_trace, "Websocket connection timed out: SSL handshake");
       timed_out = true;
       this->close();
@@ -303,18 +288,18 @@ void websocket_client::one_second_timer() {
 
 void websocket_client::handle_ping(const std::string &payload) {
   unsigned char out[MAXHEADERSIZE];
-  size_t        s = this->fill_header(out, payload.length(), OP_PONG);
-  std::string   header((const char *) out, s);
+  size_t s = this->fill_header(out, payload.length(), OP_PONG);
+  std::string header((const char *) out, s);
   ssl_connection::socket_write(header);
   ssl_connection::socket_write(payload);
 }
 
 void websocket_client::send_close_packet() {
   /* Close code 1000, big-endian. */
-  std::string   payload = "\x03\xE8";
+  std::string payload = "\x03\xE8";
   unsigned char out[MAXHEADERSIZE];
 
-  size_t      s = this->fill_header(out, payload.length(), OP_CLOSE);
+  size_t s = this->fill_header(out, payload.length(), OP_CLOSE);
   std::string header((const char *) out, s);
   ssl_connection::socket_write(header);
   ssl_connection::socket_write(payload);

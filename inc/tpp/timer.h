@@ -36,7 +36,7 @@ namespace tpp {
 
 /**
  * @brief Represents a timer handle.
- * Returned from application::start_timer and used by application::stop_timer.
+ * Returned from conduit::start_timer and used by conduit::stop_timer.
  */
 typedef size_t timer;
 
@@ -94,8 +94,7 @@ struct TPP_EXPORT timer_comparator {
  * @brief A priority timers, ordered by earliest first so that the head is
  * always the soonest to be due.
  */
-typedef std::priority_queue<timer_t, std::vector<timer_t>, timer_comparator>
-    timer_next_t;
+typedef std::priority_queue<timer_t, std::vector<timer_t>, timer_comparator> timer_next_t;
 
 /**
  * @brief A set of deleted timer handles
@@ -109,9 +108,9 @@ typedef std::set<timer> timers_deleted_t;
 class TPP_EXPORT oneshot_timer {
  private:
   /**
-   * @brief Owning application.
+   * @brief Owning conduit.
    */
-  class application *owner;
+  class conduit *owner;
 
   /**
    * @brief Timer handle.
@@ -122,12 +121,11 @@ class TPP_EXPORT oneshot_timer {
   /**
    * @brief Construct a new oneshot timer object
    *
-   * @param cl application owner
+   * @param cl conduit owner
    * @param duration duration before firing
    * @param callback callback to call on firing
    */
-  oneshot_timer(class application *cl, uint64_t duration,
-                timer_callback_t callback);
+  oneshot_timer(class conduit *cl, uint64_t duration, timer_callback_t callback);
 
   /**
    * @brief Get the handle for the created one-shot timer

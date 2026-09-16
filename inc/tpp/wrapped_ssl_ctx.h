@@ -57,9 +57,7 @@ struct wrapped_ssl_ctx {
    * context
    * @throws if context could not be created
    */
-  explicit wrapped_ssl_ctx(bool is_server = false)
-      : context(SSL_CTX_new(is_server ? TLS_server_method()
-                                      : TLS_client_method())) {
+  explicit wrapped_ssl_ctx(bool is_server = false) : context(SSL_CTX_new(is_server ? TLS_server_method() : TLS_client_method())) {
     if (context == nullptr) {
       throw "Failed to create SSL client context: " + get_ssl_error();
     }
@@ -93,7 +91,7 @@ struct wrapped_ssl_ctx {
   wrapped_ssl_ctx &operator=(wrapped_ssl_ctx &&other) noexcept {
     if (this != &other) {
       SSL_CTX_free(context);
-      context       = other.context;
+      context = other.context;
       other.context = nullptr;
     }
     return *this;

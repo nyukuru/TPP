@@ -2,8 +2,7 @@
 
 namespace tpp::events {
 
-void user_whisper_message::handle(session *, nlohmann::json &,
-                                  const std::string &) const {
+void user_whisper_message::handle(consumer *, nlohmann::json &, const std::string &) const {
 }
 
 }// namespace tpp::events

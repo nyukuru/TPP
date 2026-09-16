@@ -32,8 +32,7 @@ TEST(Scope, BitwiseOrCombinesTwoScopeValues) {
 }
 
 TEST(Scope, BitwiseOrChainsAcrossMoreThanTwoValues) {
-  tpp::scope scopes =
-      tpp::scope::s_chat_read | tpp::scope::s_chat_edit | tpp::scope::s_openid;
+  tpp::scope scopes = tpp::scope::s_chat_read | tpp::scope::s_chat_edit | tpp::scope::s_openid;
   EXPECT_TRUE(scopes.has(tpp::scope::s_chat_read));
   EXPECT_TRUE(scopes.has(tpp::scope::s_chat_edit));
   EXPECT_TRUE(scopes.has(tpp::scope::s_openid));
@@ -104,8 +103,7 @@ TEST(Scope, AddAndRemove) {
 
 TEST(Scope, AddAcceptsMultipleScopesAtOnce) {
   tpp::scope scopes;
-  scopes.add(tpp::scope::s_chat_read, tpp::scope::s_chat_edit,
-             tpp::scope::s_openid);
+  scopes.add(tpp::scope::s_chat_read, tpp::scope::s_chat_edit, tpp::scope::s_openid);
   EXPECT_TRUE(scopes.has(tpp::scope::s_chat_read));
   EXPECT_TRUE(scopes.has(tpp::scope::s_chat_edit));
   EXPECT_TRUE(scopes.has(tpp::scope::s_openid));
@@ -134,8 +132,7 @@ TEST(Scope, HasAnyRequiresOnlyOneGivenBitSet) {
 }
 
 TEST(Scope, RemoveAcceptsMultipleScopesAtOnce) {
-  tpp::scope scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit,
-                    tpp::scope::s_openid);
+  tpp::scope scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit, tpp::scope::s_openid);
   scopes.remove(tpp::scope::s_chat_read, tpp::scope::s_chat_edit);
   EXPECT_FALSE(scopes.has(tpp::scope::s_chat_read));
   EXPECT_FALSE(scopes.has(tpp::scope::s_chat_edit));
@@ -156,8 +153,8 @@ TEST(Scope, HighestBitScopeRoundTripsThroughToString) {
 }
 
 TEST(Scope, ToStringIsSpaceDelimitedAndStable) {
-  tpp::scope  scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit);
-  std::string first  = scopes.to_string();
+  tpp::scope scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit);
+  std::string first = scopes.to_string();
   std::string second = scopes.to_string();
   EXPECT_EQ(first, second);
   /* Both scope names must appear, space separated, in some fixed order. */
@@ -172,9 +169,8 @@ TEST(Scope, OpenidScopeSerializesToLiteralOpenid) {
 }
 
 TEST(Scope, ManyScopesAllAppearInOutput) {
-  tpp::scope  scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit,
-                     tpp::scope::s_openid, tpp::scope::s_user_read_email,
-                     tpp::scope::s_moderator_read_followers);
+  tpp::scope scopes(tpp::scope::s_chat_read, tpp::scope::s_chat_edit, tpp::scope::s_openid, tpp::scope::s_user_read_email,
+                    tpp::scope::s_moderator_read_followers);
   std::string out = scopes.to_string();
   EXPECT_NE(out.find("chat:read"), std::string::npos);
   EXPECT_NE(out.find("chat:edit"), std::string::npos);

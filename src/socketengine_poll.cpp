@@ -19,8 +19,8 @@
  * limitations under the License.
  *
  ************************************************************************************/
-#include <tpp/application.h>
 #include <tpp/compat.h>
+#include <tpp/conduit.h>
 #include <tpp/exception.h>
 #include <tpp/socket.h>
 #include <tpp/socketengine.h>
@@ -49,8 +49,8 @@ namespace tpp {
  */
 struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
   std::vector<tpp::compat::pollfd> poll_set;
-  tpp::compat::pollfd              out_set[FD_SETSIZE] {};
-  std::shared_mutex                poll_set_mutex;
+  tpp::compat::pollfd out_set[FD_SETSIZE] {};
+  std::shared_mutex poll_set_mutex;
 
   void process_events() final {
     constexpr int poll_delay = 1000;
@@ -77,8 +77,8 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
     int processed = 0;
 
     for (size_t index = 0; index < fd_count && processed < i; index++) {
-      const tpp::socket fd      = out_set[index].fd;
-      const short       revents = out_set[index].revents;
+      const tpp::socket fd = out_set[index].fd;
+      const short revents = out_set[index].revents;
 
       if (revents > 0) {
         processed++;
@@ -106,9 +106,8 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
 
           if ((revents & POLLERR) != 0) {
             socklen_t codesize = sizeof(int);
-            int       errcode {};
-            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *) &errcode,
-                           &codesize) < 0) {
+            int errcode {};
+            if (getsockopt(fd, SOL_SOCKET, SO_ERROR, (char *) &errcode, &codesize) < 0) {
               errcode = errno;
             }
             stats.errors++;
@@ -144,9 +143,9 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
   bool register_socket(const socket_events &e) final {
     bool r = socket_engine_base::register_socket(e);
     if (r) {
-      std::unique_lock    lock(poll_set_mutex);
+      std::unique_lock lock(poll_set_mutex);
       tpp::compat::pollfd fd_info {};
-      fd_info.fd     = e.fd;
+      fd_info.fd = e.fd;
       fd_info.events = 0;
       if ((e.flags & WANT_READ) != 0) {
         fd_info.events |= POLLIN;
@@ -181,8 +180,7 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
     return r;
   }
 
-  explicit socket_engine_poll(application *creator)
-      : socket_engine_base(creator) {
+  explicit socket_engine_poll(conduit *creator) : socket_engine_base(creator) {
     stats.engine_type = "poll";
     init_wakeup_socket();
   }
@@ -211,8 +209,7 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
 
   void init_wakeup_socket() {
     if (!wake_read.bind(tpp::address_t("127.0.0.1", 0))) {
-      throw tpp::connection_exception(
-          "Failed to bind reading socket of poll wakeup pair");
+      throw tpp::connection_exception("Failed to bind reading socket of poll wakeup pair");
     }
     if (!set_nonblocking(wake_read.fd, true)) {
       throw tpp::connection_exception(
@@ -221,17 +218,15 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
     }
 
     tpp::address_t tmp;
-    uint16_t       port = tmp.get_port(wake_read.fd);
+    uint16_t port = tmp.get_port(wake_read.fd);
     tpp::address_t dest("127.0.0.1", port);
-    if (::connect(wake_write.fd, dest.get_socket_address(),
-                  (int) dest.size()) != 0) {
-      throw tpp::connection_exception(
-          "Failed to connect writing socket of poll wakeup pair");
+    if (::connect(wake_write.fd, dest.get_socket_address(), (int) dest.size()) != 0) {
+      throw tpp::connection_exception("Failed to connect writing socket of poll wakeup pair");
     }
 
-    std::unique_lock    lock(poll_set_mutex);
+    std::unique_lock lock(poll_set_mutex);
     tpp::compat::pollfd fd_info {};
-    fd_info.fd     = wake_read.fd;
+    fd_info.fd = wake_read.fd;
     fd_info.events = POLLIN;
     poll_set.push_back(fd_info);
   }
@@ -262,8 +257,7 @@ struct TPP_EXPORT socket_engine_poll : public socket_engine_base {
   }
 };
 
-TPP_EXPORT std::unique_ptr<socket_engine_base> create_socket_engine(
-    application *creator) {
+TPP_EXPORT std::unique_ptr<socket_engine_base> create_socket_engine(conduit *creator) {
   return std::make_unique<socket_engine_poll>(creator);
 }
 

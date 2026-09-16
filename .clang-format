@@ -1,12 +1,8 @@
 BasedOnStyle: Google
 AlignAfterOpenBracket: Align
-AlignArrayOfStructures: Left
-AlignConsecutiveAssignments: Consecutive
-AlignConsecutiveDeclarations: Consecutive
 AlignConsecutiveMacros: Consecutive
 AlignTrailingComments: Always
 AlignOperands: Align
-AllowAllArgumentsOnNextLine: false
 AllowAllParametersOfDeclarationOnNextLine: false
 AllowShortBlocksOnASingleLine: Empty 
 AllowShortCaseLabelsOnASingleLine: false
@@ -19,7 +15,7 @@ BreakBeforeBinaryOperators: None
 BreakBeforeTernaryOperators: true
 BreakConstructorInitializers: BeforeComma
 BreakInheritanceList: BeforeComma
-ColumnLimit: 80
+ColumnLimit: 160
 CompactNamespaces: false
 IndentCaseLabels: true
 IndentPPDirectives: AfterHash

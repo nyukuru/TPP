@@ -29,15 +29,10 @@
 
 namespace tpp {
 
-https_client::https_client(application *creator, const std::string &hostname,
-                           uint16_t port, const std::string &urlpath,
-                           const std::string &verb, const std::string &req_body,
-                           const http_headers &extra_headers,
-                           bool plaintext_connection, uint16_t request_timeout,
-                           const std::string            &protocol,
-                           https_client_completion_event done)
-    : ssl_connection(creator, hostname, std::to_string(port),
-                     plaintext_connection, false)
+https_client::https_client(conduit *creator, const std::string &hostname, uint16_t port, const std::string &urlpath, const std::string &verb,
+                           const std::string &req_body, const http_headers &extra_headers, bool plaintext_connection, uint16_t request_timeout,
+                           const std::string &protocol, https_client_completion_event done)
+    : ssl_connection(creator, hostname, std::to_string(port), plaintext_connection, false)
     , request_type(verb)
     , path(urlpath)
     , request_body(req_body)
@@ -57,16 +52,14 @@ void https_client::connect() {
   std::string map_headers;
   for (auto &[k, v] : request_headers) {
     std::string lower_header = tpp::utility::lowercase(k);
-    if (lower_header == "connection" || lower_header == "content-length" ||
-        lower_header == "host") {
+    if (lower_header == "connection" || lower_header == "content-length" || lower_header == "host") {
       continue;
     }
     map_headers += k + ": " + v + "\r\n";
   }
 
   if (this->sfd != SOCKET_ERROR) {
-    this->socket_write(this->request_type + " " + this->path + " HTTP/" +
-                       http_protocol +
+    this->socket_write(this->request_type + " " + this->path + " HTTP/" + http_protocol +
                        "\r\n"
                        "Host: " +
                        this->hostname +
@@ -74,16 +67,13 @@ void https_client::connect() {
                        "pragma: no-cache\r\n"
                        "Connection: keep-alive\r\n"
                        "Content-Length: " +
-                       std::to_string(this->request_body.length()) + "\r\n" +
-                       map_headers + "\r\n" + this->request_body);
+                       std::to_string(this->request_body.length()) + "\r\n" + map_headers + "\r\n" + this->request_body);
     read_loop();
   }
 }
 
-multipart_content https_client::build_multipart(
-    const std::string &json, const std::vector<std::string> &filenames,
-    const std::vector<std::string> &contents,
-    const std::vector<std::string> &mimetypes) {
+multipart_content https_client::build_multipart(const std::string &json, const std::vector<std::string> &filenames, const std::vector<std::string> &contents,
+                                                const std::vector<std::string> &mimetypes) {
   if (filenames.empty() && contents.empty()) {
     if (!json.empty()) {
       return {json, "application/json"};
@@ -93,12 +83,10 @@ multipart_content https_client::build_multipart(
 
   /* Note: loss of upper 32 bits on this value is INTENTIONAL */
   uint32_t dummy1 = (uint32_t) time(nullptr) + (uint32_t) time(nullptr);
-  time_t   dummy2 = time(nullptr) * time(nullptr);
+  time_t dummy2 = time(nullptr) * time(nullptr);
   const std::string two_cr("\r\n\r\n");
-  const std::string boundary("-------------" + tpp::utility::to_hex(dummy1) +
-                             tpp::utility::to_hex(dummy2));
-  const std::string part_start("--" + boundary +
-                               "\r\nContent-Disposition: form-data; ");
+  const std::string boundary("-------------" + tpp::utility::to_hex(dummy1) + tpp::utility::to_hex(dummy2));
+  const std::string part_start("--" + boundary + "\r\nContent-Disposition: form-data; ");
   const std::string mime_type_start("\r\nContent-Type: ");
   const std::string default_mime_type("application/octet-stream");
 
@@ -111,20 +99,12 @@ multipart_content https_client::build_multipart(
   content += json + "\r\n";
   if (filenames.size() == 1 && contents.size() == 1) {
     content += part_start + "name=\"file\"; filename=\"" + filenames[0] + "\"";
-    content += mime_type_start +
-               (mimetypes.empty() || mimetypes[0].empty() ? default_mime_type
-                                                          : mimetypes[0]) +
-               two_cr;
+    content += mime_type_start + (mimetypes.empty() || mimetypes[0].empty() ? default_mime_type : mimetypes[0]) + two_cr;
     content += contents[0];
   } else {
     for (size_t i = 0; i < filenames.size(); ++i) {
-      content += part_start + "name=\"files[" + std::to_string(i) +
-                 "]\"; filename=\"" + filenames[i] + "\"";
-      content +=
-          "\r\nContent-Type: " +
-          (mimetypes.size() <= i || mimetypes[i].empty() ? default_mime_type
-                                                         : mimetypes[i]) +
-          two_cr;
+      content += part_start + "name=\"files[" + std::to_string(i) + "]\"; filename=\"" + filenames[i] + "\"";
+      content += "\r\nContent-Type: " + (mimetypes.size() <= i || mimetypes[i].empty() ? default_mime_type : mimetypes[i]) + two_cr;
       content += contents[i];
       content += "\r\n";
     }
@@ -134,8 +114,7 @@ multipart_content https_client::build_multipart(
 }
 
 const std::string https_client::get_header(std::string header_name) const {
-  std::transform(header_name.begin(), header_name.end(), header_name.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+  std::transform(header_name.begin(), header_name.end(), header_name.begin(), [](unsigned char c) { return std::tolower(c); });
   auto hdrs = response_headers.find(header_name);
   if (hdrs != response_headers.end()) {
     return hdrs->second;
@@ -144,15 +123,12 @@ const std::string https_client::get_header(std::string header_name) const {
 }
 
 size_t https_client::get_header_count(std::string header_name) const {
-  std::transform(header_name.begin(), header_name.end(), header_name.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+  std::transform(header_name.begin(), header_name.end(), header_name.begin(), [](unsigned char c) { return std::tolower(c); });
   return response_headers.count(header_name);
 }
 
-const std::list<std::string> https_client::get_header_list(
-    std::string header_name) const {
-  std::transform(header_name.begin(), header_name.end(), header_name.begin(),
-                 [](unsigned char c) { return std::tolower(c); });
+const std::list<std::string> https_client::get_header_list(std::string header_name) const {
+  std::transform(header_name.begin(), header_name.end(), header_name.begin(), [](unsigned char c) { return std::tolower(c); });
   auto hdrs = response_headers.equal_range(header_name);
   if (hdrs.first != response_headers.end()) {
     std::list<std::string> data;
@@ -164,8 +140,7 @@ const std::list<std::string> https_client::get_header_list(
   return std::list<std::string>();
 }
 
-const std::multimap<std::string, std::string> https_client::get_headers()
-    const {
+const std::multimap<std::string, std::string> https_client::get_headers() const {
   return response_headers;
 }
 
@@ -179,26 +154,21 @@ bool https_client::handle_buffer(std::string &buffer) {
           timeout += 10;
 
           std::string unparsed = buffer;
-          std::string headers  = buffer.substr(0, buffer.find("\r\n\r\n"));
+          std::string headers = buffer.substr(0, buffer.find("\r\n\r\n"));
           buffer.erase(0, buffer.find("\r\n\r\n") + 4);
 
           std::vector<std::string> h = utility::tokenize(headers);
           if (h.size()) {
             std::string status_line = h[0];
             h.erase(h.begin());
-            std::vector<std::string> req_status =
-                utility::tokenize(status_line, " ");
-            if (req_status.size() >= 2 &&
-                (req_status[0] == "HTTP/1.1" || req_status[0] == "HTTP/1.0") &&
-                atoi(req_status[1].c_str())) {
+            std::vector<std::string> req_status = utility::tokenize(status_line, " ");
+            if (req_status.size() >= 2 && (req_status[0] == "HTTP/1.1" || req_status[0] == "HTTP/1.0") && atoi(req_status[1].c_str())) {
               for (auto &hd : h) {
                 std::string::size_type sep = hd.find(": ");
                 if (sep != std::string::npos) {
-                  std::string key   = hd.substr(0, sep);
+                  std::string key = hd.substr(0, sep);
                   std::string value = hd.substr(sep + 2, hd.length());
-                  std::transform(
-                      key.begin(), key.end(), key.begin(),
-                      [](unsigned char c) { return std::tolower(c); });
+                  std::transform(key.begin(), key.end(), key.begin(), [](unsigned char c) { return std::tolower(c); });
                   response_headers.emplace(key, value);
                 }
               }
@@ -208,23 +178,22 @@ bool https_client::handle_buffer(std::string &buffer) {
               } else {
                 content_length = ULLONG_MAX;
               }
-              chunked       = false;
+              chunked = false;
               auto it_txenc = response_headers.find("transfer-encoding");
               if (it_txenc != response_headers.end()) {
                 if (it_txenc->second.find("chunked") != std::string::npos) {
-                  chunked       = true;
-                  chunk_size    = 0;
+                  chunked = true;
+                  chunk_size = 0;
                   chunk_receive = 0;
-                  state         = HTTPS_CHUNK_LEN;
+                  state = HTTPS_CHUNK_LEN;
                   state_changed = true;
                 }
               }
               status = atoi(req_status[1].c_str());
-              if (status == 204 || status < 200 || status == 304 ||
-                  content_length == 0) {
+              if (status == 204 || status < 200 || status == 304 || content_length == 0) {
                 return false;
               } else if (!chunked) {
-                state         = HTTPS_CONTENT;
+                state = HTTPS_CONTENT;
                 state_changed = true;
                 continue;
               }
@@ -249,7 +218,7 @@ bool https_client::handle_buffer(std::string &buffer) {
         chunk_receive += to_read;
         buffer.erase(0, to_read);
         if (chunk_receive >= chunk_size) {
-          state         = HTTPS_CHUNK_TRAILER;
+          state = HTTPS_CHUNK_TRAILER;
           state_changed = true;
         } else {
           return true;
@@ -275,19 +244,19 @@ bool https_client::handle_buffer(std::string &buffer) {
         break;
       case HTTPS_CHUNK_LEN:
         if (buffer.find("\r\n") != std::string::npos) {
-          chunk_receive                = 0;
+          chunk_receive = 0;
           std::string chunk_length_str = buffer.substr(0, buffer.find("\r\n"));
           buffer.erase(0, buffer.find("\r\n") + 2);
           try {
             size_t index = 0;
-            chunk_size   = std::stoi(chunk_length_str, &index, 16);
+            chunk_size = std::stoi(chunk_length_str, &index, 16);
           } catch (const std::exception &) {
             keepalive = false;
             return false;
           }
           state = HTTPS_CHUNK_CONTENT;
           if (chunk_size == 0) {
-            state      = HTTPS_CHUNK_LAST;
+            state = HTTPS_CHUNK_LAST;
             chunk_size = 2;
           }
           state_changed = true;
@@ -335,8 +304,7 @@ void https_client::one_second_timer() {
   if (!tcp_connect_done && time(nullptr) >= timeout) {
     timed_out = true;
     this->close();
-  } else if (tcp_connect_done && !connected && time(nullptr) >= timeout &&
-             this->state != HTTPS_DONE) {
+  } else if (tcp_connect_done && !connected && time(nullptr) >= timeout && this->state != HTTPS_DONE) {
     this->close();
     timed_out = true;
   } else if (time(nullptr) >= timeout && this->state != HTTPS_DONE) {
@@ -365,22 +333,22 @@ https_client::~https_client() {
 http_connect_info https_client::get_host_info(std::string url) {
   http_connect_info hci = {false, "http", "", 80};
   if (url.substr(0, 8) == "https://") {
-    hci.port   = 443;
+    hci.port = 443;
     hci.is_ssl = true;
     hci.scheme = url.substr(0, 5);
-    url        = url.substr(8, url.length());
+    url = url.substr(8, url.length());
   } else if (url.substr(0, 7) == "http://") {
     hci.scheme = url.substr(0, 4);
-    url        = url.substr(7, url.length());
+    url = url.substr(7, url.length());
   } else if (url.substr(0, 9) == "twitch.tv") {
     hci.scheme = "https";
     hci.is_ssl = true;
-    hci.port   = 443;
+    hci.port = 443;
   }
   size_t colon_pos = url.find(':');
   if (colon_pos != std::string::npos) {
     hci.hostname = url.substr(0, colon_pos);
-    hci.port     = atoi(url.substr(colon_pos + 1, url.length()).c_str());
+    hci.port = atoi(url.substr(colon_pos + 1, url.length()).c_str());
     if (hci.port == 0) {
       hci.port = 80;
     }

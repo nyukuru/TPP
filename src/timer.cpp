@@ -19,7 +19,7 @@
  * limitations under the License.
  *
  ************************************************************************************/
-#include <tpp/application.h>
+#include <tpp/conduit.h>
 #include <tpp/timer.h>
 
 #include <atomic>
@@ -31,14 +31,13 @@ namespace {
 std::atomic<timer> next_handle {1};
 }
 
-timer application::start_timer(timer_callback_t on_tick, uint64_t frequency,
-                               timer_callback_t on_stop) {
+timer conduit::start_timer(timer_callback_t on_tick, uint64_t frequency, timer_callback_t on_stop) {
   timer_t new_timer;
 
-  new_timer.handle    = next_handle++;
+  new_timer.handle = next_handle++;
   new_timer.next_tick = time(nullptr) + static_cast<time_t>(frequency);
-  new_timer.on_tick   = std::move(on_tick);
-  new_timer.on_stop   = std::move(on_stop);
+  new_timer.on_tick = std::move(on_tick);
+  new_timer.on_stop = std::move(on_stop);
   new_timer.frequency = frequency;
 
   std::lock_guard<std::mutex> lock(timer_guard);
@@ -47,7 +46,7 @@ timer application::start_timer(timer_callback_t on_tick, uint64_t frequency,
   return new_timer.handle;
 }
 
-bool application::stop_timer(timer t) {
+bool conduit::stop_timer(timer t) {
   /* Marks the handle deleted; tick_timers() checks this set rather than
    * removing entries from the priority queue directly. */
   std::lock_guard<std::mutex> lock(timer_guard);
@@ -55,7 +54,7 @@ bool application::stop_timer(timer t) {
   return true;
 }
 
-void application::tick_timers() {
+void conduit::tick_timers() {
   time_t now = time(nullptr);
 
   /* Bounded to visit each timer that existed at the start at most once,
@@ -80,12 +79,12 @@ void application::tick_timers() {
       next_timer.pop();
     }
 
-    bool                       deleted {false};
+    bool deleted {false};
     timers_deleted_t::iterator deleted_iter {};
     {
       std::lock_guard<std::mutex> lock(timer_guard);
       deleted_iter = deleted_timers.find(cur_timer.handle);
-      deleted      = deleted_iter != deleted_timers.end();
+      deleted = deleted_iter != deleted_timers.end();
     }
 
     if (!deleted) {
@@ -105,9 +104,7 @@ void application::tick_timers() {
   }
 }
 
-oneshot_timer::oneshot_timer(class application *cl, uint64_t duration,
-                             timer_callback_t callback)
-    : owner(cl) {
+oneshot_timer::oneshot_timer(class conduit *cl, uint64_t duration, timer_callback_t callback) : owner(cl) {
   th = cl->start_timer(
       [callback, this](tpp::timer handle) {
         callback(handle);

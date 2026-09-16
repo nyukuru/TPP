@@ -21,7 +21,7 @@
  ************************************************************************************/
 #pragma once
 
-#include <tpp/application.h>
+#include <tpp/conduit.h>
 #include <tpp/event_router.h>
 #include <tpp/exception.h>
 #include <tpp/export.h>
@@ -46,8 +46,7 @@ enum socket_listener_type : uint8_t {
  * arrives, accepts it and spawns a new connection of type T.
  * @tparam T connection type, must be derived from ssl_connection
  */
-template<typename T,
-         typename = std::enable_if_t<std::is_base_of_v<ssl_connection, T>>>
+template<typename T, typename = std::enable_if_t<std::is_base_of_v<ssl_connection, T>>>
 struct socket_listener {
   /**
    * @brief The listening socket for incoming connections
@@ -60,9 +59,9 @@ struct socket_listener {
   std::unordered_map<socket, std::unique_ptr<T>> connections;
 
   /**
-   * @brief Application creator
+   * @brief Conduit creator
    */
-  application *creator {nullptr};
+  conduit *creator {nullptr};
 
   /**
    * @brief True if plain text connections to the server are allowed
@@ -91,7 +90,7 @@ struct socket_listener {
 
   /**
    * @brief Create a new socket listener (TCP server)
-   * @param owner Owning application
+   * @param owner Owning conduit
    * @param address IP address to bind the listening socket to, use
    * "0.0.0.0" to bind all interfaces
    * @param port Port number to bind the listening socket to
@@ -100,37 +99,22 @@ struct socket_listener {
    * @param public_key For SSL servers, a path to the PEM public key file
    * @throws tpp::connection_exception on failure to bind or listen
    */
-  socket_listener(application *owner, const std::string_view address,
-                  uint16_t port, socket_listener_type type = li_plaintext,
-                  const std::string &private_key = "",
-                  const std::string &public_key  = "")
-      : fd(rst_tcp)
-      , creator(owner)
-      , plaintext(type == li_plaintext)
-      , private_key_file(private_key)
-      , public_key_file(public_key) {
+  socket_listener(conduit *owner, const std::string_view address, uint16_t port, socket_listener_type type = li_plaintext, const std::string &private_key = "",
+                  const std::string &public_key = "")
+      : fd(rst_tcp), creator(owner), plaintext(type == li_plaintext), private_key_file(private_key), public_key_file(public_key) {
     fd.set_option<int>(SOL_SOCKET, SO_REUSEADDR, 1);
     if (!fd.bind(address_t(address, port))) {
-      throw tpp::connection_exception("Could not bind to " +
-                                      std::string(address) + ":" +
-                                      std::to_string(port));
+      throw tpp::connection_exception("Could not bind to " + std::string(address) + ":" + std::to_string(port));
     }
     if (!fd.listen()) {
-      throw tpp::connection_exception("Could not listen for connections on " +
-                                      std::string(address) + ":" +
-                                      std::to_string(port));
+      throw tpp::connection_exception("Could not listen for connections on " + std::string(address) + ":" + std::to_string(port));
     }
     events = tpp::socket_events(
-        fd.fd, WANT_READ | WANT_ERROR,
-        [this](socket sfd, const struct socket_events &e) {
-          handle_accept(sfd, e);
-        },
-        [](socket, const struct socket_events &) {},
-        [](socket, const struct socket_events &, int) {});
+        fd.fd, WANT_READ | WANT_ERROR, [this](socket sfd, const struct socket_events &e) { handle_accept(sfd, e); },
+        [](socket, const struct socket_events &) {}, [](socket, const struct socket_events &, int) {});
     owner->socketengine->register_socket(events);
 
-    close_event = creator->on_socket_close(
-        [this](const socket_close_t &event) { connections.erase(event.fd); });
+    close_event = creator->on_socket_close([this](const socket_close_t &event) { connections.erase(event.fd); });
   }
 
   /**

@@ -21,7 +21,7 @@
  ************************************************************************************/
 #pragma once
 
-#include <tpp/application.h>
+#include <tpp/conduit.h>
 #include <tpp/http_server_request.h>
 #include <tpp/socket_listener.h>
 #include <tpp/ssl_context.h>
@@ -46,7 +46,7 @@ struct TPP_EXPORT http_server : public socket_listener<http_server_request> {
 
   /**
    * @brief Creates a HTTP(S) server.
-   * @param creator owning application
+   * @param creator owning conduit
    * @param address address to bind to, use "0.0.0.0" to bind to all local
    * addresses
    * @param port port to bind to
@@ -56,10 +56,8 @@ struct TPP_EXPORT http_server : public socket_listener<http_server_request> {
    * @param public_key public key PEM file for HTTPS/SSL. If empty, a
    * plaintext server is created
    */
-  http_server(application *creator, const std::string_view address,
-              uint16_t port, http_server_request_event handle_request,
-              const std::string &private_key = "",
-              const std::string &public_key  = "");
+  http_server(conduit *creator, const std::string_view address, uint16_t port, http_server_request_event handle_request, const std::string &private_key = "",
+              const std::string &public_key = "");
 
   /**
    * @brief Emplaces a new request into the connection pool.

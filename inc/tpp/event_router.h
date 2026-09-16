@@ -15,8 +15,8 @@ namespace tpp {
 template<typename T>
 class event_router_t {
   std::unordered_map<size_t, std::function<void(const T &)>> handlers;
-  size_t                                                     next_handle {1};
-  mutable std::mutex                                         guard;
+  size_t next_handle {1};
+  mutable std::mutex guard;
 
  public:
   /**
@@ -26,7 +26,7 @@ class event_router_t {
    */
   size_t operator()(std::function<void(const T &)> handler) {
     std::lock_guard<std::mutex> lock(guard);
-    size_t                      handle = next_handle++;
+    size_t handle = next_handle++;
     handlers.emplace(handle, std::move(handler));
     return handle;
   }

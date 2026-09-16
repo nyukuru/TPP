@@ -33,7 +33,7 @@
 namespace tpp {
 
 static inline constexpr const char *HTTP_VERSION = PACKAGE_HTTP_VERSION;
-static inline constexpr const char *TWITCH_HOST  = "https://twitch.tv";
+static inline constexpr const char *TWITCH_HOST = "https://twitch.tv";
 
 /**
  * @brief HTTP connection status
@@ -250,14 +250,9 @@ class TPP_EXPORT https_client : public ssl_connection {
    * @param protocol Request HTTP protocol (default: 1.1)
    * @param done Function to call when the request is completed
    */
-  https_client(application *creator, const std::string &hostname,
-               uint16_t port = 443, const std::string &urlpath = "/",
-               const std::string  &verb          = "GET",
-               const std::string  &req_body      = "",
-               const http_headers &extra_headers = {},
-               bool plaintext_connection = false, uint16_t request_timeout = 5,
-               const std::string            &protocol = "1.1",
-               https_client_completion_event done     = {});
+  https_client(conduit *creator, const std::string &hostname, uint16_t port = 443, const std::string &urlpath = "/", const std::string &verb = "GET",
+               const std::string &req_body = "", const http_headers &extra_headers = {}, bool plaintext_connection = false, uint16_t request_timeout = 5,
+               const std::string &protocol = "1.1", https_client_completion_event done = {});
 
   virtual ~https_client() override;
 
@@ -270,10 +265,8 @@ class TPP_EXPORT https_client : public ssl_connection {
    * @param mimetypes MIME types of each of the files to send
    * @return multipart mime content and headers
    */
-  static multipart_content build_multipart(
-      const std::string &json, const std::vector<std::string> &filenames = {},
-      const std::vector<std::string> &contents  = {},
-      const std::vector<std::string> &mimetypes = {});
+  static multipart_content build_multipart(const std::string &json, const std::vector<std::string> &filenames = {},
+                                           const std::vector<std::string> &contents = {}, const std::vector<std::string> &mimetypes = {});
 
   /**
    * @brief Processes incoming data from the SSL socket input buffer.

@@ -2,8 +2,7 @@
 
 namespace tpp::events {
 
-void channel_unban::handle(session *, nlohmann::json &,
-                           const std::string &) const {
+void channel_unban::handle(consumer *, nlohmann::json &, const std::string &) const {
 }
 
 }// namespace tpp::events

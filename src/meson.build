@@ -1,7 +1,9 @@
 libtpp_sources = files(
-  'application.cpp',
+  'auth_server.cpp',
+  'conduit.cpp',
+  'consumer.cpp',
   'dns.cpp',
-  'event.cpp',
+  'eventsub_events.cpp',
   'events/automod_message_hold.cpp',
   'events/automod_message_update.cpp',
   'events/automod_settings_update.cpp',
@@ -79,7 +81,6 @@ libtpp_sources = files(
   'events/user_authorization_revoke.cpp',
   'events/user_update.cpp',
   'events/user_whisper_message.cpp',
-  'eventsub.cpp',
   'eventsub_client.cpp',
   'http_server.cpp',
   'http_server_request.cpp',
@@ -91,7 +92,6 @@ libtpp_sources = files(
   'ssl_connection.cpp',
   'ssl_context.cpp',
   'timer.cpp',
-  'session.cpp',
   'utility.cpp',
   'websocket.cpp'
 )

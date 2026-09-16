@@ -32,7 +32,7 @@
 
 namespace tpp {
 
-class application;
+class conduit;
 
 /**
  * @brief Opaque type holding OpenSSL library specific structures.
@@ -138,10 +138,10 @@ class TPP_EXPORT ssl_connection {
   openssl_connection *ssl;
 
   /**
-   * @brief Owning application. Used to reach the socket engine and timer
+   * @brief Owning conduit. Used to reach the socket engine and timer
    * subsystem shared by every connection.
    */
-  application *owner;
+  conduit *owner;
 
   /**
    * @brief SSL cipher in use
@@ -243,8 +243,7 @@ class TPP_EXPORT ssl_connection {
    * @return int -1 on error, 0 on success just like POSIX connect()
    * @throw tpp::connection_exception on failure
    */
-  int start_connecting(tpp::socket sockfd, const struct sockaddr *addr,
-                       socklen_t addrlen);
+  int start_connecting(tpp::socket sockfd, const struct sockaddr *addr, socklen_t addrlen);
 
  public:
   /**
@@ -294,7 +293,7 @@ class TPP_EXPORT ssl_connection {
   /**
    * @brief Connect to a specified host and port. Throws std::runtime_error on
    * fatal error.
-   * @param creator Owning application
+   * @param creator Owning conduit
    * @param _hostname The hostname to connect to
    * @param _port the Port number to connect to
    * @param plaintext_downgrade Set to true to connect using plaintext only,
@@ -303,13 +302,11 @@ class TPP_EXPORT ssl_connection {
    * port, if available
    * @throw tpp::exception Failed to initialise connection
    */
-  ssl_connection(application *creator, const std::string &_hostname,
-                 const std::string &_port, bool plaintext_downgrade = false,
-                 bool reuse = false);
+  ssl_connection(conduit *creator, const std::string &_hostname, const std::string &_port, bool plaintext_downgrade = false, bool reuse = false);
 
   /**
    * @brief Accept a new connection from listen()/accept() socket
-   * @param creator Owning application
+   * @param creator Owning conduit
    * @param fd Socket file descriptor assigned by accept()
    * @param port Port the new fd came from
    * @param plaintext_downgrade Set to true to connect using plaintext only,
@@ -319,9 +316,7 @@ class TPP_EXPORT ssl_connection {
    * @param public_key if plaintext_downgrade is set to false, a public key PEM
    * file for SSL connections
    */
-  ssl_connection(application *creator, socket fd, uint16_t port,
-                 bool plaintext_downgrade, const std::string &private_key,
-                 const std::string &public_key);
+  ssl_connection(conduit *creator, socket fd, uint16_t port, bool plaintext_downgrade, const std::string &private_key, const std::string &public_key);
 
   /**
    * @brief Set up non blocking I/O and configure on_read, on_write and
@@ -389,8 +384,7 @@ class TPP_EXPORT ssl_connection {
    * @param fd File descriptor
    * @param error_code Error code
    */
-  void on_error(tpp::socket fd, const struct tpp::socket_events &,
-                int         error_code);
+  void on_error(tpp::socket fd, const struct tpp::socket_events &, int error_code);
 };
 
 }// namespace tpp

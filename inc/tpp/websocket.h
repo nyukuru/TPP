@@ -130,8 +130,7 @@ class TPP_EXPORT websocket_client : public ssl_connection {
    * @param opcode the ws_opcode to send in the header
    * @return size of filled header
    */
-  size_t fill_header(unsigned char *outbuf, size_t sendlength,
-                     ws_opcode opcode);
+  size_t fill_header(unsigned char *outbuf, size_t sendlength, ws_opcode opcode);
 
   /**
    * @brief Handle ping requests.
@@ -166,16 +165,14 @@ class TPP_EXPORT websocket_client : public ssl_connection {
  public:
   /**
    * @brief Connect to a specific websocket server.
-   * @param creator Creating application
+   * @param creator Creating conduit
    * @param hostname Hostname to connect to
    * @param port Port to connect to
    * @param urlpath The URL path components of the HTTP request to send
    * @param opcode The default opcode for outgoing frames, either OP_BINARY
    * or OP_TEXT
    */
-  websocket_client(application *creator, const std::string &hostname,
-                   const std::string &port    = "443",
-                   const std::string &urlpath = "", ws_opcode opcode = OP_TEXT);
+  websocket_client(conduit *creator, const std::string &hostname, const std::string &port = "443", const std::string &urlpath = "", ws_opcode opcode = OP_TEXT);
 
   virtual ~websocket_client() = default;
 
