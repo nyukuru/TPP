@@ -47,7 +47,7 @@ struct TPP_EXPORT http_server : public socket_listener<http_server_request> {
   /**
    * @brief Creates a HTTP(S) server.
    * @param creator owning conduit
-   * @param address address to bind to, use "0.0.0.0" to bind to all local
+   * @param address address to bind to; "0.0.0.0" binds all local
    * addresses
    * @param port port to bind to
    * @param handle_request callback to call for each pending request

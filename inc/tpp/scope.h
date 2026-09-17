@@ -443,9 +443,9 @@ class TPP_EXPORT scope {
     s_whispers_read,
 
     /**
-     * @brief Requests an OIDC ID token alongside the access token. Required
-     * if you want conduit::on_authenticate to receive a non-empty
-     * id_token.
+     * @brief Requests an OIDC ID token alongside the access token.
+     * conduit::on_authenticate receives a non-empty id_token only when
+     * this scope is set.
      */
     s_openid,
 

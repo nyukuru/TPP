@@ -20,6 +20,9 @@ stdenv.mkDerivation (finalAttrs: {
     (lib.mesonBool "enable-tests" finalAttrs.finalPackage.doCheck)
   ];
 
+  # Functional tests use real api
+  mesonCheckFlags = "--suite TPP:unit";
+
   nativeBuildInputs = [
     meson
     ninja

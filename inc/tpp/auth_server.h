@@ -19,12 +19,9 @@ class consumer;
 /**
  * @brief Runs the local HTTP redirect listener for a conduit's Twitch
  * OIDC implicit grant flow and resolves completed logins into
- * tpp::consumer objects, parented by the given conduit. A separate,
- * standalone object - a conduit neither owns nor knows about one; you
- * construct it yourself and drive its start()/stop() independently of
- * the owning conduit's own start()/stop() (though it still needs that
- * conduit's socketengine to exist, i.e. conduit::start() to have already
- * been called, before start() here will succeed).
+ * tpp::consumer objects, parented by the given conduit. A standalone
+ * object, started and stopped independently of the owning conduit.
+ * Requires the owning conduit to already be running.
  */
 class TPP_EXPORT auth_server {
   conduit *owner_;
@@ -43,7 +40,7 @@ class TPP_EXPORT auth_server {
    * @param owner owning conduit; must outlive this auth_server
    * @param redirect_port Local port to listen on for the OAuth redirect.
    * Must match the port used in the application's registered "OAuth
-   * Redirect URLs", e.g. http://localhost:3000
+   * Redirect URLs"
    * @throw std::invalid_argument if redirect_port is 0
    */
   auth_server(conduit *owner, uint16_t redirect_port);
@@ -86,10 +83,9 @@ class TPP_EXPORT auth_server {
   /**
    * @brief Fired once a user has completed the Twitch OIDC implicit
    * grant flow. The consumer delivered is freshly constructed and not
-   * tracked by the owning conduit - completing authentication does not
-   * by itself mean a consumer is wanted. Call conduit::add_consumer()
-   * from a handler if you want to keep it; if none do, the consumer is
-   * destroyed once every handler has returned.
+   * tracked by the owning conduit; it is destroyed once every handler
+   * has returned unless a handler tracks it.
+   * @see conduit::add_consumer
    */
   event_router_t<std::shared_ptr<consumer>> on_authenticate;
 };

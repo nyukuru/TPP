@@ -13,7 +13,7 @@ libtpp_unit_tester = executable(
   'libtpp-unit-tester',
   libtpp_unit_sources,
   include_directories : private_headers,
-  dependencies : deps + [ libtpp_dep ]
+  dependencies : deps + test_deps + [ libtpp_dep ]
 )
 
 test(
@@ -38,7 +38,7 @@ libtpp_functional_tester = executable(
   'libtpp-functional-tester',
   libtpp_functional_sources,
   include_directories : private_headers,
-  dependencies : deps + [ libtpp_dep ],
+  dependencies : deps + test_deps + [ libtpp_dep ],
   cpp_args : [ '-DTPP_TEST_SECRETS_PATH="' + test_secrets_path + '"' ]
 )
 

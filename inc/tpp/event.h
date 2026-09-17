@@ -189,17 +189,9 @@ struct TPP_EXPORT event_dispatch_t {
 };
 
 /**
- * @brief Type-safe field extraction helpers used by every fill_from_json()
- * method (tpp::user, tpp::message, and the events::event_handler
- * implementations in src/events/ *.cpp) - verbatim copies of DPP's own
- * json_interop.h family (for_each_json()/string_not_null()/
- * int64_not_null()/... and their set_*_not_null() siblings), minus
- * set_iconhash_not_null() (no tpp equivalent of DPP's utility::iconhash).
- * Each getter returns a zero value rather than throwing if j is null,
- * the key is absent, or the value is null/the wrong type - see each
- * function's body for the exact rule, which differs slightly by type
- * (e.g. the numeric getters accept anything but null/string, matching
- * DPP, rather than requiring a strict number type).
+ * @brief Type-safe field extraction helpers used by fill_from_json()
+ * methods. Each getter returns a zero value rather than throwing if j is
+ * null, the key is absent, or the value is null or the wrong type.
  */
 TPP_EXPORT void for_each_json(nlohmann::json *parent, std::string_view key, const std::function<void(nlohmann::json *)> &fn);
 
@@ -236,14 +228,9 @@ namespace events {
 class TPP_EXPORT event_handler {
  public:
   /**
-   * @brief Handles one EventSub notification. Mirrors DPP's own event
-   * handlers (see dpp::events::message_create::handle in
-   * src/dpp/events/message_create.cpp): guards on whether the matching
-   * event_router_t has any handlers attached, and if so, queues the rest
-   * of the work - parsing the notification, resolving the tracked
-   * consumer it belongs to, and firing the router - onto the owning
-   * conduit's dispatch thread pool. Nothing above this call does any
-   * parsing or consumer lookup; that is this function's job alone.
+   * @brief Handles one EventSub notification: parses it, resolves the
+   * tracked consumer it belongs to, and fires the matching
+   * event_router_t on the owning conduit's dispatch thread pool.
    * @param client shard the notification arrived on
    * @param j parsed JSON of the notification's payload.event
    * @param raw raw JSON text of the notification's payload.event
@@ -347,11 +334,10 @@ TPP_EVENT_DECL(user_whisper_message)
 
 /**
  * @brief Looks up and invokes the handler registered for a notification's
- * subscription type, mirroring DPP's discord_client::handle_event. Logs
- * at ll_debug and does nothing else if subscription_type has no
- * registered handler.
+ * subscription type. Logs at ll_debug and does nothing else if
+ * subscription_type has no registered handler.
  * @param client shard the notification arrived on
- * @param subscription_type e.g. "channel.chat.message"
+ * @param subscription_type EventSub subscription type name
  * @param j parsed JSON of the notification's payload.event
  * @param raw raw JSON text of the notification's payload.event
  */

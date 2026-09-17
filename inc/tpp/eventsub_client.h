@@ -114,19 +114,14 @@ struct TPP_EXPORT eventsub_reconnect_t {
 
 /**
  * @brief Drives a single EventSub Conduit shard's WebSocket connection,
- * analogous to DPP's dpp::discord_client - owned by conduit, which pools
+ * analogous to DPP's dpp::discord_client. Owned by conduit, which pools
  * these into its shards_ vector. Dispatches welcome and reconnect frames
- * to on_welcome/on_reconnect for the owning conduit to act on.
+ * to on_welcome/on_reconnect.
  *
- * A notification frame is additionally routed on this class's own IO
- * thread: looked up against the events:: handler registry and handed to
- * event_handler::handle(), which - mirroring DPP's own event handlers -
- * guards on whether the matching event_router_t (e.g.
- * conduit::on_chat_message) has any handlers attached, and if so queues
- * the parsing, consumer resolution, and router call onto the owning
- * conduit's dispatch thread pool rather than doing any of that inline
- * here. on_notification still fires for every notification regardless of
- * whether it routed anywhere, for introspection/testing.
+ * A notification frame is looked up against the events:: handler
+ * registry and handed to event_handler::handle() on this class's own IO
+ * thread. on_notification fires for every notification regardless of
+ * whether it routed anywhere.
  * @note On a session_reconnect message, this class only reports the new
  * URL via on_reconnect; it does not reconnect itself.
  */

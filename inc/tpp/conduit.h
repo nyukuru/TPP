@@ -41,6 +41,51 @@ using app_token_event = std::function<void(bool success, const std::string &acce
 using refresh_token_event = std::function<void(bool success, const std::string &access_token, const std::string &refresh_token, uint64_t expires_in)>;
 
 /**
+ * @brief One entry from a Helix "Get Users" response.
+ * @see https://dev.twitch.tv/docs/api/reference/#get-users
+ */
+struct TPP_EXPORT helix_user {
+  std::string id;
+  std::string login;
+  std::string display_name;
+  std::string profile_image_url;
+};
+
+/**
+ * @brief One entry from a Helix "Get Streams" response. Only present for
+ * channels that are currently live.
+ * @see https://dev.twitch.tv/docs/api/reference/#get-streams
+ */
+struct TPP_EXPORT helix_stream {
+  std::string id;
+  std::string user_id;
+  std::string user_login;
+  std::string user_name;
+  std::string game_id;
+  std::string game_name;
+  std::string title;
+  int64_t viewer_count {0};
+  std::string started_at;
+  std::string thumbnail_url;
+};
+
+/**
+ * @brief Fired with the result of conduit::get_users().
+ */
+using helix_users_event = std::function<void(bool success, const std::vector<helix_user> &users)>;
+
+/**
+ * @brief Fired with the result of conduit::get_streams().
+ */
+using helix_streams_event = std::function<void(bool success, const std::vector<helix_stream> &streams)>;
+
+/**
+ * @brief Fired with the result of conduit::subscribe(). subscription_id
+ * is empty on failure.
+ */
+using subscribe_event = std::function<void(bool success, const std::string &subscription_id)>;
+
+/**
  * @brief The top level object of a T++ program, analogous to DPP's
  * dpp::cluster. Represents one registered Twitch application (a
  * client_id, optionally paired with its client_secret), owns the shared
@@ -49,19 +94,14 @@ using refresh_token_event = std::function<void(bool success, const std::string &
  * tracked consumer's subscriptions across. A conduit and its shards
  * belong to the client_id, not to any one consumer.
  *
- * The Twitch OIDC implicit grant flow itself is not this class's
- * concern - construct a separate tpp::auth_server (pointed at this
- * conduit) if you need it, and drive its start()/stop() yourself; a
- * conduit neither owns nor knows about one. Each user who authenticates,
- * however that happens, gets their own tpp::consumer, parented by this
- * conduit via create_consumer(), though creating one alone does not
- * track it.
+ * Each user who authenticates gets their own tpp::consumer, parented by
+ * this conduit via create_consumer().
  *
  * Every notification a shard's eventsub_client resolves to a registered
  * handler and a tracked consumer is queued onto this conduit's dispatch
- * thread pool (see enqueue_dispatch()) rather than invoked inline on the
- * IO thread that received it - the on_chat_message-style event_router_t
- * hooks below fire from one of those worker threads.
+ * thread pool and dispatched from a worker thread, not the IO thread.
+ * @see auth_server
+ * @see enqueue_dispatch
  */
 class TPP_EXPORT conduit {
  private:
@@ -110,11 +150,23 @@ class TPP_EXPORT conduit {
   };
   std::vector<pending_conduit_subscription_t> pending_conduit_subscriptions_;
 
+  struct pending_app_subscription_t {
+    event e;
+    subscribe_event callback;
+  };
+  std::vector<pending_app_subscription_t> pending_app_subscriptions_;
+
+  /* Reuses a conduit this client_id already has open server-side, if any
+   * (Twitch does not clean these up on process exit); otherwise
+   * create_conduit()s a new one. */
+  void find_or_create_conduit(uint16_t shard_count, std::function<void(bool)> callback);
   void create_conduit(uint16_t shard_count, std::function<void(bool)> callback);
+  void finish_opening_conduit(const std::string &id, uint16_t shard_count, std::function<void(bool)> callback);
   void open_shards(uint16_t shard_count);
   void wire_shard_callbacks(eventsub_client *client, uint16_t shard_id);
   void patch_shard_transport(uint16_t shard_id, const std::string &session_id);
   void do_subscribe_for_consumer(const std::shared_ptr<consumer> &c, const event &e);
+  void do_subscribe_app(const event &e, subscribe_event callback);
 
   /* Per-consumer token lifecycle and Helix calls - conduit is a friend of
    * consumer so these can reach its private token/request-list state
@@ -127,6 +179,11 @@ class TPP_EXPORT conduit {
   void refresh_access_token(consumer *c);
   void set_token_expiry(consumer *c, uint64_t expires_in);
   void helix_post(consumer *c, const std::string &path, const std::string &body, std::function<void(https_client *)> on_done);
+
+  /* App-token-authenticated Helix GET, backing get_users()/get_streams()
+   * below - unlike helix_post() above, which always authenticates as a
+   * specific consumer. */
+  void helix_get(const std::string &path, std::function<void(https_client *)> on_done);
 
   /* Dispatch thread pool: runs handler->handle() for notifications an
    * eventsub_client shard has resolved to a registered handler and a
@@ -265,16 +322,13 @@ class TPP_EXPORT conduit {
   /**
    * @param client_id Twitch application client ID
    * @param client_secret Optional. Required by get_app_access_token(),
-   * refresh_user_token(), and open_conduit() (and therefore by
-   * consumer::subscribe(), which routes through this conduit).
+   * refresh_user_token(), and open_conduit().
    * @param intent_flags EventSub subscription categories this conduit
-   * intends to use. Informational only; consumers do not subscribe to
-   * anything automatically - call consumer::subscribe() explicitly.
+   * intends to use. Informational only.
    * @param shard_count If nonzero, start() calls open_conduit(shard_count)
-   * on your behalf once it is running, so you do not need to call it
-   * yourself. Errors are only logged, since there is no callback to
-   * report them to this way - call open_conduit() directly if you need
-   * one. 0 (the default) leaves opening the conduit entirely up to you.
+   * automatically, logging any error. 0 (the default) leaves opening the
+   * conduit up to you.
+   * @see open_conduit
    */
   explicit conduit(const std::string &client_id, const std::string &client_secret = "", intent intent_flags = intent(i_chat_messages),
                    uint16_t shard_count = 0);
@@ -311,9 +365,8 @@ class TPP_EXPORT conduit {
 
   /**
    * @brief Constructs a consumer directly from an already-obtained access
-   * token, without going through the local OAuth redirect server. The
-   * consumer is not tracked by this conduit - call add_consumer() if you
-   * want it to be.
+   * token, without going through the local OAuth redirect server. Not
+   * tracked by this conduit.
    * @param user_id Twitch numeric user ID of the authenticated user
    * @param login Twitch login name of the authenticated user
    * @param access_token user access token
@@ -322,6 +375,7 @@ class TPP_EXPORT conduit {
    * @param refresh_token optional refresh token. If given, the consumer
    * rotates access_token on its own shortly before expires_in runs out
    * @return the newly created consumer
+   * @see add_consumer
    */
   std::shared_ptr<consumer> create_consumer(const std::string &user_id, const std::string &login, const std::string &access_token,
                                             const std::string &id_token = "", uint64_t expires_in = 0, const std::string &refresh_token = "");
@@ -354,16 +408,16 @@ class TPP_EXPORT conduit {
   void remove_consumer(const std::string &user_id);
 
   /**
-   * @brief Creates a Twitch EventSub Conduit and opens `shard_count`
-   * eventsub_client WebSocket connections for it. A conduit belongs to
-   * this client_id, not to any one consumer - Twitch load-balances every
-   * tracked consumer's subscriptions across its shards. Requires
-   * client_secret and start() to have been called first.
+   * @brief Opens `shard_count` eventsub_client WebSocket connections for
+   * this client_id's EventSub Conduit. Reuses an existing server-side
+   * conduit for this client_id if one exists, otherwise creates a new
+   * one. Requires client_secret and start() to have been called first.
    * @param shard_count number of WebSocket shard connections to open
    * @param callback optional, called with true once the conduit exists
    * and is ready to accept subscriptions, or false on failure
    * @throw std::runtime_error if start() has not been called
    * @throw std::invalid_argument if shard_count is 0
+   * @see delete_conduit
    */
   void open_conduit(uint16_t shard_count, std::function<void(bool)> callback = {});
 
@@ -382,28 +436,21 @@ class TPP_EXPORT conduit {
   [[nodiscard]] uint16_t get_shard_count() const noexcept;
 
   /**
-   * @brief Looks up a shard connection by its ID, mirroring DPP's
-   * dpp::cluster::get_shard() - used by event_dispatch_t::from() to
-   * resolve the eventsub_client the event arrived on. Looked up by ID
-   * rather than storing the pointer directly, since a shard's
-   * eventsub_client is replaced (not just reconnected in place) whenever
-   * it reconnects - see wire_shard_callbacks().
-   * @param shard_id shard ID, e.g. from event_dispatch_t::shard
+   * @brief Looks up a shard connection by its ID.
+   * @param shard_id shard ID
    * @return the shard, or nullptr if shard_id is out of range
+   * @see wire_shard_callbacks
    */
   [[nodiscard]] eventsub_client *get_shard(uint16_t shard_id) const;
 
   /**
    * @brief Deletes this conduit's EventSub Conduit via the Twitch API,
    * along with every subscription attached to it, and closes this
-   * conduit's shards. A conduit otherwise outlives the process that
-   * created it - Twitch does not clean these up on its own - so anything
-   * that calls open_conduit() repeatedly against the same client_id
-   * (tests, in particular) should call this once done, or it will
-   * eventually hit Twitch's per-client_id conduit limit. No-op if
-   * open_conduit() has not been called or has not yet completed.
-   * @param callback optional, called with true once deleted (or if there
-   * was nothing to delete), or false on failure
+   * conduit's shards. No-op if open_conduit() has not been called or has
+   * not yet completed.
+   * @param callback optional, called with true once deleted, or false on
+   * failure
+   * @see open_conduit
    */
   void delete_conduit(std::function<void(bool)> callback = {});
 
@@ -425,11 +472,33 @@ class TPP_EXPORT conduit {
   void subscribe_for_consumer(const user &u, const event &e);
 
   /**
+   * @brief Creates an EventSub subscription authenticated with this
+   * conduit's app access token, for app-scoped subscription types only.
+   * If the conduit is not ready yet, the subscription is created once it
+   * is. Requires client_secret.
+   * @param e the subscription to create
+   * @param callback optional, called with the result
+   * @see subscribe_event
+   * @see subscribe_for_consumer
+   */
+  void subscribe(const event &e, subscribe_event callback = {});
+
+  /**
+   * @brief Deletes an EventSub subscription previously created with
+   * subscribe(). Requires client_secret.
+   * @param subscription_id the subscription to delete
+   * @param callback optional, called with true once deleted, or false on
+   * failure
+   * @see subscribe
+   */
+  void unsubscribe(const std::string &subscription_id, std::function<void(bool)> callback = {});
+
+  /**
    * @brief Schedules automatic access token rotation for a tracked
    * consumer shortly before its current access token expires, if it has
-   * a refresh token. Called automatically by add_consumer(); exposed
-   * because consumer::schedule_token_rotation() forwards to it.
+   * a refresh token. Called automatically by add_consumer().
    * @note c must be owned by a shared_ptr.
+   * @see add_consumer
    */
   void schedule_token_rotation(consumer *c);
 
@@ -453,13 +522,8 @@ class TPP_EXPORT conduit {
   void send_message(const user &u, const std::string &message, const std::string &broadcaster_id = "");
 
   /**
-   * @brief Obtains an app access token via the OAuth2 Client Credentials
-   * Grant. Requires client_secret. An app access token is not tied to any
-   * user and cannot be used for user-scoped EventSub subscriptions, but
-   * works with app-scoped Helix endpoints and client credential
-   * validation.
-   * @note This is a stateless one-off request - it does not touch the
-   * app access token this conduit itself keeps refreshed (see start()).
+   * @brief Obtains a stateless app access token via the OAuth2 Client
+   * Credentials Grant. Requires client_secret.
    * @param callback called with the result; success is false if the
    * request failed or client_secret was not set
    */
@@ -473,6 +537,26 @@ class TPP_EXPORT conduit {
    * refresh_token may be included, replacing the old one
    */
   void refresh_user_token(const std::string &refresh_token, refresh_token_event callback);
+
+  /**
+   * @brief Looks up Twitch users by login name, authenticated with this
+   * conduit's app access token. Requires client_secret.
+   * @param logins login names to look up, capped at 100 per call
+   * @param callback called with the result; success is false only if the
+   * request itself failed
+   * @see helix_user
+   */
+  void get_users(const std::vector<std::string> &logins, helix_users_event callback);
+
+  /**
+   * @brief Looks up live stream info by login name, authenticated with
+   * this conduit's app access token. Requires client_secret.
+   * @param user_logins login names to look up, capped at 100 per call
+   * @param callback called with the result; success is false only if the
+   * request itself failed
+   * @see helix_stream
+   */
+  void get_streams(const std::vector<std::string> &user_logins, helix_streams_event callback);
 
   /**
    * @brief Logs a message. The default implementation writes to stderr.

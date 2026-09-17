@@ -128,3 +128,10 @@ libtpp_dep = declare_dependency(
   link_with : libtpp,
   dependencies : deps,
 )
+
+pkg.generate(libtpp,
+  name : 'tpp',
+  filebase : 'tpp',
+  description : 'C++ Twitch API library, inspired by DPP',
+  version : meson.project_version()
+)

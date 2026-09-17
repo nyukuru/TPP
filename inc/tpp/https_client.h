@@ -235,20 +235,18 @@ class TPP_EXPORT https_client : public ssl_connection {
    * @brief Connects to a specific HTTP(S) server and starts a request. The
    * connection is non-blocking; done is called once the request completes.
    * @param hostname Hostname to connect to
-   * @param port Port number to connect to, usually 443 for SSL and 80 for
-   * plaintext
-   * @param urlpath path part of URL, e.g. "/api"
-   * @param verb Request verb, e.g. GET or POST
-   * @param req_body Request body, use tpp::https_client::build_multipart()
-   * to build a multipart MIME body (e.g. for multiple file upload)
-   * @param extra_headers Additional request headers, e.g. user-agent,
-   * authorization, etc
-   * @param plaintext_connection Set to true to make the connection plaintext
-   * (turns off SSL)
-   * @param request_timeout How many seconds before the connection is considered
-   * failed if not finished
-   * @param protocol Request HTTP protocol (default: 1.1)
+   * @param port Port number to connect to
+   * @param urlpath path part of URL
+   * @param verb Request verb
+   * @param req_body Request body
+   * @param extra_headers Additional request headers
+   * @param plaintext_connection Set to true to make the connection
+   * plaintext, turning off SSL
+   * @param request_timeout How many seconds before the connection is
+   * considered failed if not finished
+   * @param protocol Request HTTP protocol
    * @param done Function to call when the request is completed
+   * @see build_multipart
    */
   https_client(conduit *creator, const std::string &hostname, uint16_t port = 443, const std::string &urlpath = "/", const std::string &verb = "GET",
                const std::string &req_body = "", const http_headers &extra_headers = {}, bool plaintext_connection = false, uint16_t request_timeout = 5,

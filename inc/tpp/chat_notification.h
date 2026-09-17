@@ -26,12 +26,9 @@ struct TPP_EXPORT chat_badge : public json_interface<chat_badge> {
 };
 
 /**
- * @brief The sub-object named by channel_chat_notification_t::notice_type
- * (e.g. j["resub"] when notice_type is "resub"). Every notice_type's
- * fields are collapsed into this one struct - only the fields relevant to
- * the actual notice_type are populated, the rest are left at their
- * defaults, since Twitch names the same concept differently per
- * notice_type (e.g. a gifted sub's recipient vs. a raid's raider).
+ * @brief The sub-object named by channel_chat_notification_t::notice_type.
+ * Every notice_type's fields are collapsed into this one struct; only
+ * the fields relevant to the actual notice_type are populated.
  */
 struct TPP_EXPORT chat_notice_metadata : public json_interface<chat_notice_metadata> {
   friend struct json_interface<chat_notice_metadata>;

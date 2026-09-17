@@ -257,7 +257,27 @@ void conduit::open_conduit(uint16_t shard_count, std::function<void(bool)> callb
       }
       return;
     }
-    create_conduit(shard_count, callback);
+    find_or_create_conduit(shard_count, callback);
+  });
+}
+
+void conduit::find_or_create_conduit(uint16_t shard_count, std::function<void(bool)> callback) {
+  helix_get("/helix/eventsub/conduits", [this, shard_count, callback](https_client *c) {
+    std::string existing_id;
+    if (c && c->get_status() == 200) {
+      json resp = json::parse(c->get_content(), nullptr, false);
+      if (!resp.is_discarded() && resp.contains("data") && resp["data"].is_array() && !resp["data"].empty()) {
+        existing_id = resp["data"][0].value("id", "");
+      }
+    }
+
+    if (existing_id.empty()) {
+      create_conduit(shard_count, callback);
+      return;
+    }
+
+    log(ll_info, "Reusing existing EventSub conduit " + existing_id);
+    finish_opening_conduit(existing_id, shard_count, callback);
   });
 }
 
@@ -349,26 +369,35 @@ void conduit::create_conduit(uint16_t shard_count, std::function<void(bool)> cal
                                            return;
                                          }
 
-                                         conduit_id_ = new_conduit_id;
-
-                                         std::vector<pending_conduit_subscription_t> pending;
-                                         {
-                                           std::lock_guard<std::mutex> lock(conduit_mutex_);
-                                           conduit_ready_ = true;
-                                           pending.swap(pending_conduit_subscriptions_);
-                                         }
-                                         for (auto &p : pending) {
-                                           if (auto c = p.sess.lock()) {
-                                             do_subscribe_for_consumer(c, p.e);
-                                           }
-                                         }
-
-                                         open_shards(shard_count);
-
-                                         if (callback) {
-                                           callback(true);
-                                         }
+                                         finish_opening_conduit(new_conduit_id, shard_count, callback);
                                        });
+}
+
+void conduit::finish_opening_conduit(const std::string &id, uint16_t shard_count, std::function<void(bool)> callback) {
+  conduit_id_ = id;
+
+  std::vector<pending_conduit_subscription_t> pending;
+  std::vector<pending_app_subscription_t> pending_app;
+  {
+    std::lock_guard<std::mutex> lock(conduit_mutex_);
+    conduit_ready_ = true;
+    pending.swap(pending_conduit_subscriptions_);
+    pending_app.swap(pending_app_subscriptions_);
+  }
+  for (auto &p : pending) {
+    if (auto sess = p.sess.lock()) {
+      do_subscribe_for_consumer(sess, p.e);
+    }
+  }
+  for (auto &p : pending_app) {
+    do_subscribe_app(p.e, p.callback);
+  }
+
+  open_shards(shard_count);
+
+  if (callback) {
+    callback(true);
+  }
 }
 
 void conduit::open_shards(uint16_t shard_count) {
@@ -477,6 +506,102 @@ void conduit::subscribe_for_consumer(const user &u, const event &e) {
   subscribe_for_consumer(c, e);
 }
 
+void conduit::subscribe(const event &e, subscribe_event callback) {
+  bool ready;
+  {
+    std::lock_guard<std::mutex> lock(conduit_mutex_);
+    ready = conduit_ready_;
+    if (!ready) {
+      pending_app_subscriptions_.push_back({e, callback});
+    }
+  }
+  if (ready) {
+    do_subscribe_app(e, callback);
+  }
+}
+
+void conduit::do_subscribe_app(const event &e, subscribe_event callback) {
+  ensure_app_access_token([this, e, callback](bool ok) {
+    if (!ok) {
+      log(ll_error, "Failed to create " + e.type + " subscription: could not obtain an app access token");
+      if (callback) {
+        callback(false, "");
+      }
+      return;
+    }
+
+    json condition = json::object();
+    for (const auto &[key, value] : e.condition) {
+      condition[key] = value;
+    }
+
+    json body {
+        {"type", e.type},
+        {"version", e.version},
+        {"condition", condition},
+        {"transport", {{"method", "conduit"}, {"conduit_id", conduit_id_}}},
+    };
+    http_headers headers {
+        {"Authorization", "Bearer " + app_access_token_},
+        {"Client-Id", client_id_},
+        {"Content-Type", "application/json"},
+    };
+
+    auto it = pending_app_requests_.insert(pending_app_requests_.end(), nullptr);
+    *it = std::make_unique<https_client>(
+        this, "api.twitch.tv", 443, "/helix/eventsub/subscriptions", "POST", body.dump(), headers, false, 10, "1.1",
+        [this, it, type = e.type, callback](https_client *c) {
+          bool ok = (c->get_status() == 202);
+          std::string subscription_id;
+          if (ok) {
+            json resp = json::parse(c->get_content(), nullptr, false);
+            if (!resp.is_discarded() && resp.contains("data") && resp["data"].is_array() && !resp["data"].empty()) {
+              subscription_id = resp["data"][0].value("id", "");
+            }
+            ok = !subscription_id.empty();
+          }
+          if (!ok) {
+            log(ll_error, "Failed to create " + type + " subscription, Helix returned status " + std::to_string(c->get_status()) + ": " + c->get_content());
+          }
+          defer([this, it]() { pending_app_requests_.erase(it); });
+          if (callback) {
+            callback(ok, subscription_id);
+          }
+        });
+  });
+}
+
+void conduit::unsubscribe(const std::string &subscription_id, std::function<void(bool)> callback) {
+  ensure_app_access_token([this, subscription_id, callback](bool ok) {
+    if (!ok) {
+      log(ll_error, "Failed to delete subscription " + subscription_id + ": could not obtain an app access token");
+      if (callback) {
+        callback(false);
+      }
+      return;
+    }
+
+    http_headers headers {
+        {"Authorization", "Bearer " + app_access_token_},
+        {"Client-Id", client_id_},
+    };
+
+    auto it = pending_app_requests_.insert(pending_app_requests_.end(), nullptr);
+    *it = std::make_unique<https_client>(this, "api.twitch.tv", 443, "/helix/eventsub/subscriptions?id=" + utility::url_encode(subscription_id), "DELETE", "",
+                                         headers, false, 10, "1.1", [this, it, subscription_id, callback](https_client *c) {
+                                           bool ok = (c->get_status() == 204);
+                                           if (!ok) {
+                                             log(ll_error, "Failed to delete subscription " + subscription_id + ", Helix returned status " +
+                                                               std::to_string(c->get_status()) + ": " + c->get_content());
+                                           }
+                                           defer([this, it]() { pending_app_requests_.erase(it); });
+                                           if (callback) {
+                                             callback(ok);
+                                           }
+                                         });
+  });
+}
+
 void conduit::send_message(consumer *c, const std::string &message, const std::string &broadcaster_id) {
   std::string target = broadcaster_id.empty() ? c->get_user_id() : broadcaster_id;
   json body {
@@ -519,6 +644,108 @@ void conduit::helix_post(consumer *c, const std::string &path, const std::string
       std::lock_guard<std::mutex> inner_lock(c->pending_requests_mutex_);
       c->pending_requests_.erase(it);
     });
+  });
+}
+
+void conduit::helix_get(const std::string &path, std::function<void(https_client *)> on_done) {
+  ensure_app_access_token([this, path, on_done](bool ok) {
+    if (!ok) {
+      log(ll_error, "helix_get(" + path + "): could not obtain an app access token");
+      if (on_done) {
+        on_done(nullptr);
+      }
+      return;
+    }
+
+    http_headers headers {
+        {"Authorization", "Bearer " + app_access_token_},
+        {"Client-Id", client_id_},
+    };
+
+    auto it = pending_app_requests_.insert(pending_app_requests_.end(), nullptr);
+    *it = std::make_unique<https_client>(this, "api.twitch.tv", 443, path, "GET", "", headers, false, 10, "1.1", [this, it, on_done](https_client *hc) {
+      if (on_done) {
+        on_done(hc);
+      }
+      defer([this, it]() { pending_app_requests_.erase(it); });
+    });
+  });
+}
+
+namespace {
+
+std::string helix_query_string(const std::string &key, const std::vector<std::string> &values) {
+  std::string query;
+  for (const auto &value : values) {
+    query += query.empty() ? "?" : "&";
+    query += key + "=" + utility::url_encode(value);
+  }
+  return query;
+}
+
+helix_user parse_helix_user(const json &j) {
+  helix_user u;
+  u.id = j.value("id", "");
+  u.login = j.value("login", "");
+  u.display_name = j.value("display_name", "");
+  u.profile_image_url = j.value("profile_image_url", "");
+  return u;
+}
+
+helix_stream parse_helix_stream(const json &j) {
+  helix_stream s;
+  s.id = j.value("id", "");
+  s.user_id = j.value("user_id", "");
+  s.user_login = j.value("user_login", "");
+  s.user_name = j.value("user_name", "");
+  s.game_id = j.value("game_id", "");
+  s.game_name = j.value("game_name", "");
+  s.title = j.value("title", "");
+  s.viewer_count = j.value("viewer_count", (int64_t) 0);
+  s.started_at = j.value("started_at", "");
+  s.thumbnail_url = j.value("thumbnail_url", "");
+  return s;
+}
+
+}// namespace
+
+void conduit::get_users(const std::vector<std::string> &logins, helix_users_event callback) {
+  helix_get("/helix/users" + helix_query_string("login", logins), [callback](https_client *hc) {
+    std::vector<helix_user> users;
+    bool ok = hc && hc->get_status() == 200;
+    if (ok) {
+      json resp = json::parse(hc->get_content(), nullptr, false);
+      if (!resp.is_discarded() && resp.contains("data") && resp["data"].is_array()) {
+        for (const auto &entry : resp["data"]) {
+          users.push_back(parse_helix_user(entry));
+        }
+      } else {
+        ok = false;
+      }
+    }
+    if (callback) {
+      callback(ok, users);
+    }
+  });
+}
+
+void conduit::get_streams(const std::vector<std::string> &user_logins, helix_streams_event callback) {
+  helix_get("/helix/streams" + helix_query_string("user_login", user_logins), [callback](https_client *hc) {
+    std::vector<helix_stream> streams;
+    bool ok = hc && hc->get_status() == 200;
+    if (ok) {
+      json resp = json::parse(hc->get_content(), nullptr, false);
+      if (!resp.is_discarded() && resp.contains("data") && resp["data"].is_array()) {
+        for (const auto &entry : resp["data"]) {
+          streams.push_back(parse_helix_stream(entry));
+        }
+      } else {
+        ok = false;
+      }
+    }
+    if (callback) {
+      callback(ok, streams);
+    }
   });
 }
 

@@ -91,8 +91,8 @@ struct socket_listener {
   /**
    * @brief Create a new socket listener (TCP server)
    * @param owner Owning conduit
-   * @param address IP address to bind the listening socket to, use
-   * "0.0.0.0" to bind all interfaces
+   * @param address IP address to bind the listening socket to; "0.0.0.0"
+   * binds all interfaces
    * @param port Port number to bind the listening socket to
    * @param type Type of server, plaintext or SSL
    * @param private_key For SSL servers, a path to the PEM private key file
