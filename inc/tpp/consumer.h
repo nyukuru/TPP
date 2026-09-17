@@ -30,6 +30,13 @@ class oneshot_timer;
  * subscribe()/send_message() convenience wrappers.
  */
 class TPP_EXPORT consumer : public std::enable_shared_from_this<consumer> {
+  /* conduit owns the actual token lifecycle and Helix call machinery
+   * (conduit::schedule_token_rotation(), ::refresh_access_token(),
+   * ::set_token_expiry(), ::helix_post()) and reaches into the private
+   * state below directly to do it; the methods below this class keeps
+   * are thin consumer-shaped wrappers that just call through to it. */
+  friend class conduit;
+
   conduit *owner_;
   std::string user_id_;
   std::string login_;
@@ -42,21 +49,6 @@ class TPP_EXPORT consumer : public std::enable_shared_from_this<consumer> {
 
   std::mutex pending_requests_mutex_;
   std::list<std::unique_ptr<https_client>> pending_requests_;
-
-  void helix_post(const std::string &path, const std::string &body, std::function<void(https_client *)> on_done);
-
-  /**
-   * @brief Records a new access token expiry and reschedules rotation.
-   * @param expires_in seconds from now until the current access_token_
-   * expires; 0 means unknown
-   */
-  void set_token_expiry(uint64_t expires_in);
-
-  /**
-   * @brief Exchanges refresh_token_ for a new access token and
-   * reschedules rotation for the result.
-   */
-  void refresh_access_token();
 
  public:
   /**
@@ -112,21 +104,23 @@ class TPP_EXPORT consumer : public std::enable_shared_from_this<consumer> {
   /**
    * @brief Schedules automatic token rotation shortly before the current
    * access token expires, if this consumer has a refresh token. Called
-   * automatically by conduit::add_consumer().
+   * automatically by conduit::add_consumer(). Forwards to
+   * conduit::schedule_token_rotation(), which owns the actual logic.
    * @note Must be called on a consumer owned by a shared_ptr.
    */
   void schedule_token_rotation();
 
   /**
-   * @brief Creates an EventSub subscription for this consumer, routed
-   * through the owning conduit. If the conduit is not ready yet, the
-   * subscription is created once it is.
+   * @brief Creates an EventSub subscription for this consumer. Forwards
+   * to conduit::subscribe_for_consumer(), which owns the actual logic. If
+   * the conduit is not ready yet, the subscription is created once it is.
    * @param e the subscription to create
    */
   void subscribe(const event &e);
 
   /**
-   * @brief Sends a chat message as this user.
+   * @brief Sends a chat message as this user. Forwards to
+   * conduit::send_message(), which owns the actual logic.
    * @param message message text
    * @param broadcaster_id channel to send to; defaults to this user's own
    * channel (get_user_id())

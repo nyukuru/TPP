@@ -68,7 +68,7 @@ void websocket_client::connect() {
   read_loop();
 }
 
-bool websocket_client::handle_frame(const std::string &buffer, ws_opcode opcode) {
+bool websocket_client::handle_frame(const std::string &, ws_opcode) {
   /* This is a stub for classes that derive the websocket client */
   return true;
 }
@@ -305,7 +305,7 @@ void websocket_client::send_close_packet() {
   ssl_connection::socket_write(payload);
 }
 
-void websocket_client::error(uint32_t errorcode) {
+void websocket_client::error(uint32_t) {
 }
 
 void websocket_client::on_disconnect() {

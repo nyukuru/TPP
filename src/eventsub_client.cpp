@@ -117,7 +117,8 @@ eventsub_message parse_eventsub_message(const std::string &raw) {
 
 eventsub_client::eventsub_client(conduit *creator, const std::string &connect_url)
     : websocket_client(creator, connect_url.empty() ? EVENTSUB_HOST : parse_ws_url(connect_url).hostname,
-                       connect_url.empty() ? "443" : parse_ws_url(connect_url).port, connect_url.empty() ? EVENTSUB_PATH : parse_ws_url(connect_url).path) {
+                       connect_url.empty() ? "443" : parse_ws_url(connect_url).port, connect_url.empty() ? EVENTSUB_PATH : parse_ws_url(connect_url).path)
+    , creator(creator) {
 }
 
 bool eventsub_client::handle_frame(const std::string &buffer, ws_opcode opcode) {
@@ -148,20 +149,7 @@ bool eventsub_client::handle_frame(const std::string &buffer, ws_opcode opcode) 
 }
 
 void eventsub_client::route_notification(const std::string &subscription_type, nlohmann::json event, const std::string &raw) {
-  std::string user_id = event.value("broadcaster_user_id", "");
-  if (user_id.empty()) {
-    user_id = event.value("user_id", "");
-  }
-  if (user_id.empty()) {
-    return;
-  }
-
-  auto c = owner->get_consumer(user_id);
-  if (!c) {
-    return;
-  }
-
-  owner->enqueue_dispatch([c, subscription_type, event, raw]() mutable { events::handle_event(c.get(), subscription_type, event, raw); });
+  events::handle_event(this, subscription_type, event, raw);
 }
 
 void eventsub_client::log(tpp::loglevel severity, const std::string &msg) const {

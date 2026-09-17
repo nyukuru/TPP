@@ -270,6 +270,14 @@ uint16_t conduit::get_shard_count() const noexcept {
   return static_cast<uint16_t>(shards_.size());
 }
 
+eventsub_client *conduit::get_shard(uint16_t shard_id) const {
+  std::lock_guard<std::mutex> lock(conduit_mutex_);
+  if (shard_id >= shards_.size()) {
+    return nullptr;
+  }
+  return shards_[shard_id].get();
+}
+
 void conduit::delete_conduit(std::function<void(bool)> callback) {
   if (conduit_id_.empty()) {
     if (callback) {
@@ -373,6 +381,7 @@ void conduit::open_shards(uint16_t shard_count) {
 }
 
 void conduit::wire_shard_callbacks(eventsub_client *client, uint16_t shard_id) {
+  client->shard_id = shard_id;
   client->on_welcome([this, shard_id](const eventsub_welcome_t &w) { patch_shard_transport(shard_id, w.session_id); });
   client->on_reconnect([this, shard_id](const eventsub_reconnect_t &r) {
     log(ll_info, "EventSub shard " + std::to_string(shard_id) + " reconnecting");
@@ -457,6 +466,111 @@ void conduit::do_subscribe_for_consumer(const std::shared_ptr<consumer> &c, cons
                                          }
                                          defer([this, it]() { pending_app_requests_.erase(it); });
                                        });
+}
+
+void conduit::subscribe_for_consumer(const user &u, const event &e) {
+  auto c = get_consumer(u.id);
+  if (!c) {
+    log(ll_debug, "subscribe_for_consumer: " + u.id + " is not a tracked consumer");
+    return;
+  }
+  subscribe_for_consumer(c, e);
+}
+
+void conduit::send_message(consumer *c, const std::string &message, const std::string &broadcaster_id) {
+  std::string target = broadcaster_id.empty() ? c->get_user_id() : broadcaster_id;
+  json body {
+      {"broadcaster_id", target},
+      {"sender_id", c->get_user_id()},
+      {"message", message},
+  };
+
+  helix_post(c, "/helix/chat/messages", body.dump(), [this, login = c->get_login()](https_client *hc) {
+    if (hc->get_status() != 200) {
+      log(ll_error, "Failed to send chat message as " + login + ", Helix returned status " + std::to_string(hc->get_status()) + ": " + hc->get_content());
+    }
+  });
+}
+
+void conduit::send_message(const user &u, const std::string &message, const std::string &broadcaster_id) {
+  auto c = get_consumer(u.id);
+  if (!c) {
+    log(ll_debug, "send_message: " + u.id + " is not a tracked consumer");
+    return;
+  }
+  send_message(c.get(), message, broadcaster_id);
+}
+
+void conduit::helix_post(consumer *c, const std::string &path, const std::string &body, std::function<void(https_client *)> on_done) {
+  http_headers headers {
+      {"Authorization", "Bearer " + c->access_token_},
+      {"Client-Id", client_id_},
+      {"Content-Type", "application/json"},
+  };
+
+  std::lock_guard<std::mutex> lock(c->pending_requests_mutex_);
+  auto it = c->pending_requests_.insert(c->pending_requests_.end(), nullptr);
+  *it = std::make_unique<https_client>(this, "api.twitch.tv", 443, path, "POST", body, headers, false, 10, "1.1", [this, c, it, on_done](https_client *hc) {
+    if (on_done) {
+      on_done(hc);
+    }
+    /* Erasing `it` here would destroy this https_client mid-callback. */
+    defer([c, it]() {
+      std::lock_guard<std::mutex> inner_lock(c->pending_requests_mutex_);
+      c->pending_requests_.erase(it);
+    });
+  });
+}
+
+void conduit::set_token_expiry(consumer *c, uint64_t expires_in) {
+  c->token_expires_at_ = expires_in > 0 ? time(nullptr) + static_cast<time_t>(expires_in) : 0;
+  schedule_token_rotation(c);
+}
+
+void conduit::schedule_token_rotation(consumer *c) {
+  c->rotation_timer_.reset();
+
+  if (c->refresh_token_.empty() || c->token_expires_at_ == 0) {
+    return;
+  }
+
+  constexpr time_t safety_margin = 60;
+  time_t now = time(nullptr);
+  time_t delay = c->token_expires_at_ - now - safety_margin;
+  if (delay < 1) {
+    delay = 1;
+  }
+
+  std::weak_ptr<consumer> self = c->weak_from_this();
+  c->rotation_timer_ = std::make_unique<oneshot_timer>(this, static_cast<uint64_t>(delay), [this, self](tpp::timer) {
+    if (auto s = self.lock()) {
+      refresh_access_token(s.get());
+    }
+  });
+}
+
+void conduit::refresh_access_token(consumer *c) {
+  if (c->refresh_token_.empty()) {
+    return;
+  }
+
+  std::weak_ptr<consumer> self = c->weak_from_this();
+  refresh_user_token(c->refresh_token_, [this, self](bool ok, const std::string &access_token, const std::string &refresh_token, uint64_t expires_in) {
+    auto s = self.lock();
+    if (!s) {
+      return;
+    }
+    if (!ok) {
+      log(ll_error, "Failed to rotate access token for " + s->login_);
+      return;
+    }
+    s->access_token_ = access_token;
+    if (!refresh_token.empty()) {
+      s->refresh_token_ = refresh_token;
+    }
+    set_token_expiry(s.get(), expires_in);
+    log(ll_info, "Rotated access token for " + s->login_);
+  });
 }
 
 void conduit::get_app_access_token(app_token_event callback) {

@@ -119,19 +119,34 @@ struct TPP_EXPORT eventsub_reconnect_t {
  * to on_welcome/on_reconnect for the owning conduit to act on.
  *
  * A notification frame is additionally routed on this class's own IO
- * thread: looked up against the events:: handler registry and the owning
- * conduit's tracked consumers by the event's broadcaster_user_id/user_id,
- * and - if both resolve - handed to conduit::enqueue_dispatch() so
- * event_handler::handle() (and the event_router_t hooks it calls, such
- * as conduit::on_chat_message) runs on the conduit's dispatch thread
- * pool rather than inline here. on_notification still fires for every
- * notification regardless of whether it routed anywhere, for
- * introspection/testing.
+ * thread: looked up against the events:: handler registry and handed to
+ * event_handler::handle(), which - mirroring DPP's own event handlers -
+ * guards on whether the matching event_router_t (e.g.
+ * conduit::on_chat_message) has any handlers attached, and if so queues
+ * the parsing, consumer resolution, and router call onto the owning
+ * conduit's dispatch thread pool rather than doing any of that inline
+ * here. on_notification still fires for every notification regardless of
+ * whether it routed anywhere, for introspection/testing.
  * @note On a session_reconnect message, this class only reports the new
  * URL via on_reconnect; it does not reconnect itself.
  */
 class TPP_EXPORT eventsub_client : public websocket_client {
  public:
+  /**
+   * @brief The conduit that owns this shard, mirroring DPP's own
+   * discord_client::creator.
+   */
+  conduit *creator;
+
+  /**
+   * @brief The shard ID of this connection, mirroring DPP's own
+   * discord_client::shard_id. Set by conduit once this shard is opened;
+   * used by event_dispatch_t::from() to look the shard back up via
+   * conduit::get_shard() rather than storing a pointer that could dangle
+   * across a reconnect.
+   */
+  uint16_t shard_id {0};
+
   event_router_t<eventsub_welcome_t> on_welcome;
   event_router_t<eventsub_notification_t> on_notification;
   event_router_t<eventsub_reconnect_t> on_reconnect;
@@ -150,9 +165,9 @@ class TPP_EXPORT eventsub_client : public websocket_client {
 
  private:
   /**
-   * @brief Resolves a notification to a registered handler and a tracked
-   * consumer, then queues handler->handle() onto the owning conduit's
-   * dispatch thread pool. No-ops if either lookup fails.
+   * @brief Looks up the handler registered for a notification's
+   * subscription type and, if found, hands it this shard - see
+   * events::event_handler::handle() for what happens from there.
    */
   void route_notification(const std::string &subscription_type, nlohmann::json event, const std::string &raw);
 };

@@ -23,12 +23,15 @@ int main() {
   std::string auth_url = auth.generate_auth_url(scopes);
   std::cout << "Open this URL in your browser to authenticate:\n" << auth_url << std::endl;
 
-  /* Fires for every subscribed consumer - filter by event.from to scope
-   * a handler to one authenticated broadcaster. */
+  /* Fires for every subscribed consumer - look the consumer up via
+   * event.owner->get_consumer() (rarely needed) to scope a handler to
+   * one authenticated broadcaster. */
   app.on_chat_message([](const tpp::chat_message_t &event) {
-    std::cout << "#" << event.broadcaster.login << " " << event.chatter.login << ": " << event.message << std::endl;
-    if (event.message == "ping") {
-      event.from->send_message("pong");
+    std::cout << "#" << event.msg.broadcaster.login << " " << event.msg.chatter.login << ": " << event.msg.text << std::endl;
+    if (event.msg.text == "ping") {
+      if (auto c = event.owner->get_consumer(event.msg.broadcaster.id)) {
+        c->send_message("pong");
+      }
     }
   });
 

@@ -22,6 +22,7 @@
 #include "tpp/intents.h"
 #include "tpp/socketengine.h"
 #include "tpp/timer.h"
+#include "tpp/user.h"
 
 namespace tpp {
 
@@ -115,6 +116,18 @@ class TPP_EXPORT conduit {
   void patch_shard_transport(uint16_t shard_id, const std::string &session_id);
   void do_subscribe_for_consumer(const std::shared_ptr<consumer> &c, const event &e);
 
+  /* Per-consumer token lifecycle and Helix calls - conduit is a friend of
+   * consumer so these can reach its private token/request-list state
+   * directly, mirroring how subscribe_for_consumer/do_subscribe_for_consumer
+   * above already own the subscription side of a consumer's lifecycle.
+   * Only refresh_access_token()/set_token_expiry()/helix_post() are
+   * called solely from within conduit.cpp; schedule_token_rotation() is
+   * public below since consumer::schedule_token_rotation() forwards to
+   * it. */
+  void refresh_access_token(consumer *c);
+  void set_token_expiry(consumer *c, uint64_t expires_in);
+  void helix_post(consumer *c, const std::string &path, const std::string &body, std::function<void(https_client *)> on_done);
+
   /* Dispatch thread pool: runs handler->handle() for notifications an
    * eventsub_client shard has resolved to a registered handler and a
    * tracked consumer, off the IO thread. */
@@ -150,6 +163,90 @@ class TPP_EXPORT conduit {
    * if you only care about one.
    */
   event_router_t<chat_message_t> on_chat_message;
+
+  /**
+   * @brief Fired for every EventSub notification resolved to a tracked
+   * consumer, one event_router_t per subscription type - see each
+   * payload struct in tpp/dispatcher.h for the matching
+   * tpp::event::xxx() subscription builder. Mirrors DPP's on_message_create
+   * -style hooks on dpp::cluster.
+   */
+  event_router_t<automod_message_hold_t> on_automod_message_hold;
+  event_router_t<automod_message_update_t> on_automod_message_update;
+  event_router_t<automod_settings_update_t> on_automod_settings_update;
+  event_router_t<automod_terms_update_t> on_automod_terms_update;
+  event_router_t<channel_update_t> on_channel_update;
+  event_router_t<channel_follow_t> on_channel_follow;
+  event_router_t<channel_ad_break_begin_t> on_channel_ad_break_begin;
+  event_router_t<channel_chat_clear_t> on_channel_chat_clear;
+  event_router_t<channel_chat_clear_user_messages_t> on_channel_chat_clear_user_messages;
+  event_router_t<channel_chat_message_delete_t> on_channel_chat_message_delete;
+  event_router_t<channel_chat_notification_t> on_channel_chat_notification;
+  event_router_t<channel_chat_settings_update_t> on_channel_chat_settings_update;
+  event_router_t<channel_chat_user_message_hold_t> on_channel_chat_user_message_hold;
+  event_router_t<channel_chat_user_message_update_t> on_channel_chat_user_message_update;
+  event_router_t<channel_shared_chat_begin_t> on_channel_shared_chat_begin;
+  event_router_t<channel_shared_chat_update_t> on_channel_shared_chat_update;
+  event_router_t<channel_shared_chat_end_t> on_channel_shared_chat_end;
+  event_router_t<channel_subscribe_t> on_channel_subscribe;
+  event_router_t<channel_subscription_end_t> on_channel_subscription_end;
+  event_router_t<channel_subscription_gift_t> on_channel_subscription_gift;
+  event_router_t<channel_subscription_message_t> on_channel_subscription_message;
+  event_router_t<channel_cheer_t> on_channel_cheer;
+  event_router_t<channel_raid_t> on_channel_raid;
+  event_router_t<channel_ban_t> on_channel_ban;
+  event_router_t<channel_unban_t> on_channel_unban;
+  event_router_t<channel_unban_request_create_t> on_channel_unban_request_create;
+  event_router_t<channel_unban_request_resolve_t> on_channel_unban_request_resolve;
+  event_router_t<channel_moderate_t> on_channel_moderate;
+  event_router_t<channel_moderator_add_t> on_channel_moderator_add;
+  event_router_t<channel_moderator_remove_t> on_channel_moderator_remove;
+  event_router_t<channel_guest_star_session_begin_t> on_channel_guest_star_session_begin;
+  event_router_t<channel_guest_star_session_end_t> on_channel_guest_star_session_end;
+  event_router_t<channel_guest_star_guest_update_t> on_channel_guest_star_guest_update;
+  event_router_t<channel_guest_star_settings_update_t> on_channel_guest_star_settings_update;
+  event_router_t<channel_channel_points_automatic_reward_redemption_add_t> on_channel_channel_points_automatic_reward_redemption_add;
+  event_router_t<channel_channel_points_custom_reward_add_t> on_channel_channel_points_custom_reward_add;
+  event_router_t<channel_channel_points_custom_reward_update_t> on_channel_channel_points_custom_reward_update;
+  event_router_t<channel_channel_points_custom_reward_remove_t> on_channel_channel_points_custom_reward_remove;
+  event_router_t<channel_channel_points_custom_reward_redemption_add_t> on_channel_channel_points_custom_reward_redemption_add;
+  event_router_t<channel_channel_points_custom_reward_redemption_update_t> on_channel_channel_points_custom_reward_redemption_update;
+  event_router_t<channel_poll_begin_t> on_channel_poll_begin;
+  event_router_t<channel_poll_progress_t> on_channel_poll_progress;
+  event_router_t<channel_poll_end_t> on_channel_poll_end;
+  event_router_t<channel_prediction_begin_t> on_channel_prediction_begin;
+  event_router_t<channel_prediction_progress_t> on_channel_prediction_progress;
+  event_router_t<channel_prediction_lock_t> on_channel_prediction_lock;
+  event_router_t<channel_prediction_end_t> on_channel_prediction_end;
+  event_router_t<channel_suspicious_user_message_t> on_channel_suspicious_user_message;
+  event_router_t<channel_suspicious_user_update_t> on_channel_suspicious_user_update;
+  event_router_t<channel_vip_add_t> on_channel_vip_add;
+  event_router_t<channel_vip_remove_t> on_channel_vip_remove;
+  event_router_t<channel_warning_acknowledge_t> on_channel_warning_acknowledge;
+  event_router_t<channel_warning_send_t> on_channel_warning_send;
+  event_router_t<channel_charity_campaign_donate_t> on_channel_charity_campaign_donate;
+  event_router_t<channel_charity_campaign_start_t> on_channel_charity_campaign_start;
+  event_router_t<channel_charity_campaign_progress_t> on_channel_charity_campaign_progress;
+  event_router_t<channel_charity_campaign_stop_t> on_channel_charity_campaign_stop;
+  event_router_t<channel_goal_begin_t> on_channel_goal_begin;
+  event_router_t<channel_goal_progress_t> on_channel_goal_progress;
+  event_router_t<channel_goal_end_t> on_channel_goal_end;
+  event_router_t<channel_hype_train_begin_t> on_channel_hype_train_begin;
+  event_router_t<channel_hype_train_progress_t> on_channel_hype_train_progress;
+  event_router_t<channel_hype_train_end_t> on_channel_hype_train_end;
+  event_router_t<channel_shield_mode_begin_t> on_channel_shield_mode_begin;
+  event_router_t<channel_shield_mode_end_t> on_channel_shield_mode_end;
+  event_router_t<channel_shoutout_create_t> on_channel_shoutout_create;
+  event_router_t<channel_shoutout_receive_t> on_channel_shoutout_receive;
+  event_router_t<conduit_shard_disabled_t> on_conduit_shard_disabled;
+  event_router_t<drop_entitlement_grant_t> on_drop_entitlement_grant;
+  event_router_t<extension_bits_transaction_create_t> on_extension_bits_transaction_create;
+  event_router_t<stream_online_t> on_stream_online;
+  event_router_t<stream_offline_t> on_stream_offline;
+  event_router_t<user_authorization_grant_t> on_user_authorization_grant;
+  event_router_t<user_authorization_revoke_t> on_user_authorization_revoke;
+  event_router_t<user_update_t> on_user_update;
+  event_router_t<user_whisper_message_t> on_user_whisper_message;
 
   /**
    * @brief Queues a function to run on the next iteration of the IO event
@@ -285,6 +382,18 @@ class TPP_EXPORT conduit {
   [[nodiscard]] uint16_t get_shard_count() const noexcept;
 
   /**
+   * @brief Looks up a shard connection by its ID, mirroring DPP's
+   * dpp::cluster::get_shard() - used by event_dispatch_t::from() to
+   * resolve the eventsub_client the event arrived on. Looked up by ID
+   * rather than storing the pointer directly, since a shard's
+   * eventsub_client is replaced (not just reconnected in place) whenever
+   * it reconnects - see wire_shard_callbacks().
+   * @param shard_id shard ID, e.g. from event_dispatch_t::shard
+   * @return the shard, or nullptr if shard_id is out of range
+   */
+  [[nodiscard]] eventsub_client *get_shard(uint16_t shard_id) const;
+
+  /**
    * @brief Deletes this conduit's EventSub Conduit via the Twitch API,
    * along with every subscription attached to it, and closes this
    * conduit's shards. A conduit otherwise outlives the process that
@@ -305,6 +414,43 @@ class TPP_EXPORT conduit {
    * @param e the subscription to create
    */
   void subscribe_for_consumer(std::shared_ptr<consumer> c, const event &e);
+
+  /**
+   * @brief Same as subscribe_for_consumer(std::shared_ptr<consumer>, const
+   * event &), but looks the consumer up by identity - handy when all you
+   * have is a tpp::user from an event payload (e.g. channel_ban_t::
+   * moderator). No-op, logged at ll_debug, if u.id is not a tracked
+   * consumer.
+   */
+  void subscribe_for_consumer(const user &u, const event &e);
+
+  /**
+   * @brief Schedules automatic access token rotation for a tracked
+   * consumer shortly before its current access token expires, if it has
+   * a refresh token. Called automatically by add_consumer(); exposed
+   * because consumer::schedule_token_rotation() forwards to it.
+   * @note c must be owned by a shared_ptr.
+   */
+  void schedule_token_rotation(consumer *c);
+
+  /**
+   * @brief Sends a chat message as a tracked consumer.
+   * @param c the consumer to send as
+   * @param message message text
+   * @param broadcaster_id channel to send to; defaults to c's own channel
+   */
+  void send_message(consumer *c, const std::string &message, const std::string &broadcaster_id = "");
+
+  /**
+   * @brief Same as send_message(consumer *, const std::string &, const
+   * std::string &), but looks the sender up by identity - handy when all
+   * you have is a tpp::user from an event payload. No-op, logged at
+   * ll_debug, if u.id is not a tracked consumer.
+   * @param u the user to send as - must be a tracked consumer
+   * @param message message text
+   * @param broadcaster_id channel to send to; defaults to u's own channel
+   */
+  void send_message(const user &u, const std::string &message, const std::string &broadcaster_id = "");
 
   /**
    * @brief Obtains an app access token via the OAuth2 Client Credentials

@@ -91,26 +91,23 @@ TEST_F(ConsumerTest, TokenExpiresInReflectsRemainingTime) {
 }
 
 /* on_chat_message lives on conduit (fired for every subscribed consumer,
- * filtered by chat_message_t::from), not on consumer - see
- * ConduitChatDispatchTest below. */
+ * filterable by chat_message_t::msg.broadcaster/chatter or by looking a
+ * consumer up via chat_message_t::owner->get_consumer()), not on consumer
+ * - see ConduitChatDispatchTest below. */
 class ConduitChatDispatchTest : public ::testing::Test {
  protected:
   tpp::conduit app {"test_client_id"};
 };
 
 TEST_F(ConduitChatDispatchTest, DispatchChatMessageWithNoHookDoesNotCrash) {
-  auto consumer = make_test_consumer(app);
-  tpp::chat_message_t event;
-  event.from = consumer.get();
-  event.broadcaster = {"123", "somechannel", "SomeChannel"};
-  event.chatter = {"456", "someuser", "SomeUser"};
-  event.message = "hello";
+  tpp::chat_message_t event(&app, 0, "{}");
+  event.msg.broadcaster = {"123", "somechannel", "SomeChannel"};
+  event.msg.chatter = {"456", "someuser", "SomeUser"};
+  event.msg.text = "hello";
   EXPECT_NO_THROW({ app.on_chat_message.call(event); });
 }
 
 TEST_F(ConduitChatDispatchTest, OnChatMessageHookFiresOnDispatch) {
-  auto consumer = make_test_consumer(app);
-
   bool called = false;
   tpp::chat_message_t seen;
   app.on_chat_message([&](const tpp::chat_message_t &event) {
@@ -118,18 +115,17 @@ TEST_F(ConduitChatDispatchTest, OnChatMessageHookFiresOnDispatch) {
     seen = event;
   });
 
-  tpp::chat_message_t event;
-  event.from = consumer.get();
-  event.broadcaster = {"1971641", "streamer", "Streamer"};
-  event.chatter = {"4145994", "viewer32", "Viewer32"};
-  event.message = "ping";
+  tpp::chat_message_t event(&app, 0, "{}");
+  event.msg.broadcaster = {"1971641", "streamer", "Streamer"};
+  event.msg.chatter = {"4145994", "viewer32", "Viewer32"};
+  event.msg.text = "ping";
   app.on_chat_message.call(event);
 
   EXPECT_TRUE(called);
-  EXPECT_EQ(seen.from, consumer.get());
-  EXPECT_EQ(seen.broadcaster, event.broadcaster);
-  EXPECT_EQ(seen.chatter, event.chatter);
-  EXPECT_EQ(seen.message, "ping");
+  EXPECT_EQ(seen.owner, &app);
+  EXPECT_EQ(seen.msg.broadcaster, event.msg.broadcaster);
+  EXPECT_EQ(seen.msg.chatter, event.msg.chatter);
+  EXPECT_EQ(seen.msg.text, "ping");
 }
 
 TEST_F(ConduitChatDispatchTest, OnChatMessageSupportsMultipleHooks) {

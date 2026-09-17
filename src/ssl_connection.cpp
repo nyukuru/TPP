@@ -227,6 +227,7 @@ ssl_connection::ssl_connection(conduit *creator, socket fd, uint16_t port, bool 
     : is_server(true)
     , sfd(fd)
     , ssl(nullptr)
+    , owner(creator)
     , last_tick(time(nullptr))
     , start(time(nullptr))
     , bytes_out(0)
@@ -235,7 +236,6 @@ ssl_connection::ssl_connection(conduit *creator, socket fd, uint16_t port, bool 
     , timer_handle(0)
     , unique_id(last_unique_id++)
     , keepalive(false)
-    , owner(creator)
     , private_key_file(private_key)
     , public_key_file(public_key) {
   if (plaintext) {
@@ -284,7 +284,7 @@ std::string ssl_connection::get_cipher() {
   return cipher;
 }
 
-void ssl_connection::log(tpp::loglevel severity, const std::string &msg) const {
+void ssl_connection::log(tpp::loglevel, const std::string &) const {
 }
 
 void ssl_connection::complete_handshake(const socket_events *ev) {
@@ -334,7 +334,7 @@ void ssl_connection::do_raw_trace(const std::string &message) const {
   }
 }
 
-void ssl_connection::on_read(socket fd, const struct socket_events &ev) {
+void ssl_connection::on_read(socket, const struct socket_events &ev) {
   if (sfd == INVALID_SOCKET) {
     return;
   }
@@ -420,7 +420,7 @@ void ssl_connection::on_read(socket fd, const struct socket_events &ev) {
   }
 }
 
-void ssl_connection::on_write(socket fd, const struct socket_events &e) {
+void ssl_connection::on_write(socket, const struct socket_events &e) {
   if (sfd == INVALID_SOCKET) {
     return;
   }
@@ -583,7 +583,7 @@ void ssl_connection::on_write(socket fd, const struct socket_events &e) {
   }
 }
 
-void ssl_connection::on_error(socket fd, const struct socket_events &, int error_code) {
+void ssl_connection::on_error(socket, const struct socket_events &, int) {
   this->close();
 }
 
@@ -616,7 +616,7 @@ void ssl_connection::read_loop() {
   setup_events();
   if (!timer_handle) {
     timer_handle = owner->start_timer(
-        [this, setup_events](auto handle) {
+        [this, setup_events](auto) {
           one_second_timer();
           if (!tcp_connect_done && time(nullptr) > start + 2 && connect_retries < MAX_RETRIES && sfd != INVALID_SOCKET) {
             /* Retries up to MAX_RETRIES times, 2 seconds apart, then leaves
@@ -646,7 +646,7 @@ uint64_t ssl_connection::get_bytes_in() {
   return bytes_in;
 }
 
-bool ssl_connection::handle_buffer(std::string &buffer) {
+bool ssl_connection::handle_buffer(std::string &) {
   return true;
 }
 
