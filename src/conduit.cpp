@@ -9,6 +9,7 @@
 #include <iostream>
 #include <nlohmann/json.hpp>
 #include <stdexcept>
+#include <string_view>
 #include <thread>
 
 namespace tpp {
@@ -16,6 +17,22 @@ namespace tpp {
 namespace {
 
 using json = nlohmann::json;
+
+// Twitch reports an EventSub subscription that already exists (e.g. the
+// conduit survived a restart and still has it) as a 409 whose message
+// looks like "subscription already exists; id=<uuid>" - pulls that id out
+// so the duplicate can be treated as a successful, idempotent no-op
+// instead of a failure.
+std::string extract_existing_subscription_id(const std::string &body) {
+  json resp = json::parse(body, nullptr, false);
+  std::string message = !resp.is_discarded() ? resp.value("message", "") : body;
+  constexpr std::string_view id_marker = "id=";
+  auto pos = message.find(id_marker);
+  if (pos == std::string::npos) {
+    return "";
+  }
+  return message.substr(pos + id_marker.size());
+}
 
 }// namespace
 
@@ -489,9 +506,18 @@ void conduit::do_subscribe_for_consumer(const std::shared_ptr<consumer> &c, cons
   auto it = pending_app_requests_.insert(pending_app_requests_.end(), nullptr);
   *it = std::make_unique<https_client>(this, "api.twitch.tv", 443, "/helix/eventsub/subscriptions", "POST", body.dump(), headers, false, 10, "1.1",
                                        [this, it, type = e.type, login = c->get_login()](https_client *c) {
-                                         if (c->get_status() != 202) {
+                                         int status = c->get_status();
+                                         if (status == 409) {
+                                           std::string existing_id = extract_existing_subscription_id(c->get_content());
+                                           if (!existing_id.empty()) {
+                                             log(ll_info, "Reusing existing " + type + " subscription " + existing_id + " for " + login);
+                                           } else {
+                                             log(ll_error, "Failed to create " + type + " subscription for " + login + ", Helix returned status " +
+                                                               std::to_string(status) + ": " + c->get_content());
+                                           }
+                                         } else if (status != 202) {
                                            log(ll_error, "Failed to create " + type + " subscription for " + login + ", Helix returned status " +
-                                                             std::to_string(c->get_status()) + ": " + c->get_content());
+                                                             std::to_string(status) + ": " + c->get_content());
                                          }
                                          defer([this, it]() { pending_app_requests_.erase(it); });
                                        });
@@ -551,7 +577,8 @@ void conduit::do_subscribe_app(const event &e, subscribe_event callback) {
     *it = std::make_unique<https_client>(
         this, "api.twitch.tv", 443, "/helix/eventsub/subscriptions", "POST", body.dump(), headers, false, 10, "1.1",
         [this, it, type = e.type, callback](https_client *c) {
-          bool ok = (c->get_status() == 202);
+          int status = c->get_status();
+          bool ok = (status == 202);
           std::string subscription_id;
           if (ok) {
             json resp = json::parse(c->get_content(), nullptr, false);
@@ -559,9 +586,14 @@ void conduit::do_subscribe_app(const event &e, subscribe_event callback) {
               subscription_id = resp["data"][0].value("id", "");
             }
             ok = !subscription_id.empty();
+          } else if (status == 409) {
+            subscription_id = extract_existing_subscription_id(c->get_content());
+            ok = !subscription_id.empty();
           }
           if (!ok) {
-            log(ll_error, "Failed to create " + type + " subscription, Helix returned status " + std::to_string(c->get_status()) + ": " + c->get_content());
+            log(ll_error, "Failed to create " + type + " subscription, Helix returned status " + std::to_string(status) + ": " + c->get_content());
+          } else if (status == 409) {
+            log(ll_info, "Reusing existing " + type + " subscription " + subscription_id);
           }
           defer([this, it]() { pending_app_requests_.erase(it); });
           if (callback) {
